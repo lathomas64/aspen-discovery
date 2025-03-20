@@ -33,20 +33,40 @@ class CatalogConnection {
 	 * @access public
 	 */
 	public function __construct($driver, $accountProfile) {
+		$this->driver = $this->getDriverFromString($driver, $accountProfile);
+		if($this->driver != null)
+		{
+			$this->accountProfile = $accountProfile;
+			$this->status = true;
+		}
+	}
+
+	/**
+	 * Get Driver from String function
+	 * 
+	 * Intended for internal use only if we need a driver
+	 * from outside of CatalogConnection we should use
+	 * CatalogFactory::getCatalogConnectionInstance and grab the driver
+	 * value from the connection returned instead. We aren't using that
+	 * internally to avoid circular dependencies.
+	 * 
+	 * @param string $driver The name of the driver to load.
+	 * @param AccountProfile $accountProfile
+	 * @throws PDOException error if we cannot connect to the driver.
+	 */
+	private static function getDriverFromString($driver, $accountProfile=null)
+	{
 		$path = ROOT_DIR . "/Drivers/{$driver}.php";
 		if (is_readable($path) && $driver != 'AbstractIlsDriver') {
 			require_once $path;
 
 			try {
-				$this->driver = new $driver($accountProfile);
+				return new $driver($accountProfile);
 			} catch (PDOException $e) {
 				global $logger;
 				$logger->log("Unable to create driver $driver for account profile {$accountProfile->name}", Logger::LOG_ERROR);
 				throw $e;
 			}
-
-			$this->accountProfile = $accountProfile;
-			$this->status = true;
 		}
 	}
 
@@ -429,7 +449,7 @@ class CatalogConnection {
 			$userToResetPin->source = $accountProfile->name;
 			$userToResetPin->ils_barcode = $barcode;
 			if (!$userToResetPin->find(true)) {
-				$accountProfileDriver = $accountProfileInfo['driver'];
+				$accountProfileDriver = $this->getDriverFromString($accountProfileInfo['driver'], $accountProfile);
 				$userToResetPin = $accountProfileDriver->findNewUser($barcode, '');
 			}
 		}elseif ($accountProfile->authenticationMethod == 'db') {
