@@ -4711,6 +4711,10 @@ class User extends DataObject {
 			]);
 		}
 
+		if (array_key_exists('Custom', $enabledModules)) {
+			require_once ROOT_DIR . '/services/Custom/Custom.php';
+			$sections['custom'] = Custom::getAdminSection();
+		}
 
 		$sections['support'] = new AdminSection('Aspen Discovery Support');
 		$sections['support']->addAction(new AdminAction('Request Tracker Settings', 'Define settings for a Request Tracker support system.', '/Support/RequestTrackerConnections'), 'Administer Request Tracker Connection');
