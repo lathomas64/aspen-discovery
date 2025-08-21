@@ -26,6 +26,8 @@ function getUpdates25_08_00(): array {
 
 		// Leo Stoyanov - BWS
 
+		// Imani Thomas - ByWater
+
 		// Laura Escamilla - ByWater Solutions
 
 		//alexander - Open Fifth

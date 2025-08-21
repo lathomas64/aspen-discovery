@@ -1306,6 +1306,22 @@ function loadModuleActionId() {
 				http_response_code('200');
 			}
 		}
+		if (array_key_exists('PWA', $enabledModules))
+		{
+			if($requestURI == "/manifest.json") {
+				$_GET['module'] = "PWA";
+				$_GET['action'] = "Manifest";
+				$_REQUEST['module'] = "PWA";
+				$_REQUEST['action'] = "Manifest";
+			}
+			else if($requestURI == "/.well-known/assetlinks.json")
+			{
+				$_GET['module'] = "PWA";
+				$_GET['action'] = "AssetLinks";
+				$_REQUEST['module'] = "PWA";
+				$_REQUEST['action'] = "AssetLinks";
+			}
+		}
 	}catch (Exception $e) {
 		//This happens if web builder is not fully installed, ignore the error.
 	}

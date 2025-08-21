@@ -4843,7 +4843,11 @@ class User extends DataObject {
 		}
 		$sections['support']->addAction(new AdminAction('Help Center', 'View the Help Center for Aspen Discovery.', 'https://help.aspendiscovery.org'), true);
 		$sections['support']->addAction(new AdminAction('Release Notes', 'View release notes for Aspen Discovery which contain information about new functionality and fixes for each release.', '/Admin/ReleaseNotes'), true);
-
+		
+		if (array_key_exists('PWA', $enabledModules)){
+			require_once ROOT_DIR . '/services/PWA/Admin.php';
+			$sections['pwa'] = PWA_Admin::getAdminSection();
+		}
 		$sorter = function (AdminSection $a, AdminSection $b) {
 			return strcasecmp($a->getTranslatedLabel(), $b->getTranslatedLabel());
 		};

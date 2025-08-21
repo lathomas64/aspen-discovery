@@ -50,6 +50,17 @@
 		{if !empty($favicon)}
 			<link type="image/x-icon" href="{$favicon}" rel="shortcut icon">
 		{/if}
+		{if (array_key_exists('PWA', $enabledModules))}
+			<link rel="manifest" href="/manifest.json"/>
+			<script>
+				console.log('test');
+				if (typeof navigator.serviceWorker !== 'undefined') {
+					console.log('sup');
+					navigator.serviceWorker.register('/interface/themes/responsive/js/aspen/serviceWorker.js')
+				}
+			</script>
+			<!--<script src="/interface/themes/responsive/js/aspen/serviceWorker.js"></script>-->
+		{/if}
 		<link rel="search" type="application/opensearchdescription+xml" title="{$site.title|escape} Catalog Search" href="/Search/OpenSearch?method=describe">
 		{include file="cssAndJsIncludes.tpl"}
 		{$themeCss}
