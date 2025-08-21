@@ -96,6 +96,78 @@ class PWASetting extends DataObject {
 				'values' => $libraryList,
 				'hideInLists' => true,
 			],
+			'firebaseApiKey' => [
+				'property' => 'firebaseApiKey',
+				'type' => 'text',
+				'label' => 'Firebase API Key',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseAuthDomain' => [
+				'property' => 'firebaseAuthDomain',
+				'type' => 'text',
+				'label' => 'Firebase Authorization Domain',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseProjectID' => [
+				'property' => 'firebaseProjectID',
+				'type' => 'text',
+				'label' => 'Firebase project ID',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseStorageBucket' => [
+				'property' => 'firebaseStorageBucket',
+				'type' => 'text',
+				'label' => 'Firebase Storage Bucket',
+				'description' => 'URL for firebase Storage',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseMessagingSenderID' => [
+				'property' => 'firebaseMessagingSenderID',
+				'type' => 'text',
+				'label' => 'Firebase Messaging Sender ID',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseAppID' => [
+				'property' => 'firebaseAppID',
+				'type' => 'text',
+				'label' => 'Firebase application ID',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'firebaseMeasurementID' => [
+				'property' => 'firebaseMeasurementID',
+				'type' => 'text',
+				'label' => 'Firebase Measurement ID',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			],
+			'vapidKey' => [
+				'property' => 'vapidKey',
+				'type' => 'text',
+				'label' => 'Vapid Key',
+				'description' => 'description here',
+				'maxLength' => 50,
+				'required' => true,
+
+			]
 		];
 		// TODO should we have a PWA permission?
 		if (!UserAccount::userHasPermission('Administer Aspen LiDA Settings')) {

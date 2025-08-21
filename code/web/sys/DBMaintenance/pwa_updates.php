@@ -22,7 +22,15 @@ function getPWAUpdates() {
 					`manifestID` varchar(50) NOT NULL,
 					`startURL`  varchar(50) DEFAULT '/',
 					`slug`  varchar(50) NOT NULL,
-					`sha256CertFingerprint`  varchar(200) NOT NULL
+					`sha256CertFingerprint`  varchar(200) NOT NULL,
+					`firebaseAPIKey` varchar(50) NOT NULL,
+					`firebaseAuthDomain` varchar(50) NOT NULL,
+					`firebaseProjectID` varchar(50) NOT NULL,
+					`firebaseStorageBucket` varchar(50) NOT NULL,
+					`firebaseMessagingSenderID` varchar(50) NOT NULL,
+					`firebaseAppID` varchar(50) NOT NULL,
+					`firebaseMeasurementID` varchar(50) NOT NULL,
+					`vapidKey` varchar(50) NOT NULL,
 				  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
 			]
 		]
