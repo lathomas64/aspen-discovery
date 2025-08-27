@@ -96,8 +96,8 @@ class PWASetting extends DataObject {
 				'values' => $libraryList,
 				'hideInLists' => true,
 			],
-			'firebaseApiKey' => [
-				'property' => 'firebaseApiKey',
+			'firebaseAPIKey' => [
+				'property' => 'firebaseAPIKey',
 				'type' => 'text',
 				'label' => 'Firebase API Key',
 				'description' => 'description here',
@@ -175,6 +175,19 @@ class PWASetting extends DataObject {
 		}
 
 		return $structure;
+	}
+
+	function getFirebaseSettings(){
+		return [
+			'firebaseAPIKey' => $this->firebaseAPIKey,
+			'firebaseAuthDomain' =>$this->firebaseAuthDomain,
+			'firebaseProjectID' => $this->firebaseProjectID,
+			'firebaseStorageBucket' => $this->firebaseStorageBucket,
+			'firebaseMessagingSenderID' => $this->firebaseMessagingSenderID,
+			'firebaseAppID' => $this->firebaseAppID,
+			'firebaseMeasurementID' => $this->firebaseMeasurementID,
+			'vapidKey' => $this->vapidKey
+		];
 	}
 }
 ?>

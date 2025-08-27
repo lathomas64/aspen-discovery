@@ -49,7 +49,8 @@ class SystemAPI extends AbstractAPI {
 					'getLibraryLinks',
 					'getCatalogStatus',
 					'getLocations',
-					'getMaterialsRequestForm'
+					'getMaterialsRequestForm',
+					'getFirebaseSettings'
 				])) {
 					$result = [
 						'result' => $this->$method(),
@@ -1268,6 +1269,23 @@ class SystemAPI extends AbstractAPI {
 			'message' => 'Loaded materials request form',
 			'form' => $materialsRequest,
 		];
+	}
+
+	function getFirebaseSettings() {
+		require_once ROOT_DIR . '/sys/PWA/Setting.php';
+		$settings = new PWASetting();
+		if($settings->find(true))
+		{
+			return [
+				'success' => true,
+				'settings' => $settings->getFirebaseSettings()
+			];
+		} else {
+			return [
+				'success' => false,
+				'error' => 'no settings found'
+			];
+		}
 	}
 
 	function getBreadcrumbs(): array {
