@@ -256,7 +256,11 @@ class IndexingProfile extends DataObject {
 		];
 	}
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
 
 		$translationMapStructure = TranslationMap::getObjectStructure($context);
 		unset($translationMapStructure['indexingProfileId']);
@@ -1579,7 +1583,8 @@ class IndexingProfile extends DataObject {
 
 		}
 
-		return $structure;
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
 	public function updateStructureForEditingObject($structure) : array {
@@ -1717,7 +1722,7 @@ class IndexingProfile extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::update()
 	 */
-	public function update($context = '') : bool|int {
+	public function update(string $context = '') : int|bool {
 		$ret = parent::update();
 		if ($ret === FALSE) {
 			global $logger;
@@ -1791,7 +1796,7 @@ class IndexingProfile extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::insert()
 	 */
-	public function insert($context = '') : int {
+	public function insert(string $context = '') : int|bool {
 		global $serverName;
 		$sanitizedName = strtolower(preg_replace('/\W/', ' ', $this->name));
 		//Because we are doing this in 2 steps, first setting the indexing class and then setting everything else, we can set reasonable defaults
@@ -2086,6 +2091,45 @@ class IndexingProfile extends DataObject {
 			}
 		}
 		return $this->_accountProfile;
+	}
+
+	static $_indexingProfiles = null;
+	static $_indexingProfilesById = null;
+
+	/**
+	 * Return all indexing profiles with caching to make sure we don't look them up multiple times.
+	 *
+	 * @return IndexingProfile[]
+	 */
+	public static function getAllIndexingProfiles() : array {
+		if (self::$_indexingProfiles === null) {
+			self::$_indexingProfiles = [];
+			$indexingProfile = new IndexingProfile();
+			$indexingProfile->orderBy('name');
+			$indexingProfile->find();
+			while ($indexingProfile->fetch()) {
+				self::$_indexingProfiles[$indexingProfile->name] = clone($indexingProfile);
+			}
+		}
+		return self::$_indexingProfiles;
+	}
+
+	/**
+	 * Return all indexing profiles with caching to make sure we don't look them up multiple times.
+	 *
+	 * @return IndexingProfile[]
+	 */
+	public static function getAllIndexingProfilesById() : array {
+		if (self::$_indexingProfilesById === null) {
+			self::$_indexingProfilesById = [];
+			$indexingProfile = new IndexingProfile();
+			$indexingProfile->orderBy('name');
+			$indexingProfile->find();
+			while ($indexingProfile->fetch()) {
+				self::$_indexingProfilesById[$indexingProfile->id] = clone($indexingProfile);
+			}
+		}
+		return self::$_indexingProfilesById;
 	}
 }
 

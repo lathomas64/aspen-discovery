@@ -1,6 +1,5 @@
 <?php
-
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
+/** @noinspection PhpMissingFieldTypeInspection */
 
 /**
  * Represents a group of mutually exclusive permissions.
@@ -21,8 +20,12 @@ class PermissionGroup extends DataObject {
 	public $label;
 	public $description;
 
-	static function getObjectStructure($context = ''): array {
-		return [
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -53,5 +56,8 @@ class PermissionGroup extends DataObject {
 				'description' => 'Helper text displayed under the dropdown label.',
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 }

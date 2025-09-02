@@ -358,21 +358,24 @@ abstract class AbstractIlsDriver extends AbstractDriver {
 		//Nothing by default
 	}
 
-    public function getCollectionReportData($location, $date) {
-        return null;
-    }
+	public function getCollectionReportData($location, $date) {
+		return null;
+	}
 
-    public function getHoldsReportData($location) {
+	public function getHoldsReportData($location) {
 		return null;
 	}
 
 	public function getStudentReportData($location, $showOverdueOnly, $date) {
 		return null;
 	}
-
-    public function getWeedingReportData($location) {
-        return null;
-    }
+	public function getWeedingReportData($location) {
+		return null;
+	}
+	
+	public function getLibrarianFacebookData() {
+		return null;
+	}
 
 	/**
 	 * Loads any contact information that is not stored by Aspen Discovery from the ILS. Updates the user object.
@@ -486,6 +489,27 @@ abstract class AbstractIlsDriver extends AbstractDriver {
 			'success' => false,
 			'message' => 'This functionality has not been implemented for this ILS.',
 		];
+	}
+
+	/**
+	 * Retrieves valid pickup locations for this patron for this record.
+	 * @param string $recordId
+	 * @param User $patron
+	 * @return array An array containing success status and a message.
+	 */
+	public function getValidPickupLocationsForRecordFromILS($recordId, $patron): array {
+		return [
+			'success' => false,
+			'message' => 'This functionality has not been implemented for this ILS.',
+		];
+	}
+	/**
+	 * Checks whether this ILS restricts pickup locations for specific records.
+	 *
+	 * @return array An array containing success status and a message.
+	 */
+	public function restrictValidPickupLocationsForRecordByILS(): bool {
+		return false;
 	}
 
 	/**
@@ -995,6 +1019,10 @@ abstract class AbstractIlsDriver extends AbstractDriver {
 	}
 
 	public function hasAdditionalFineFields(): bool {
+		return false;
+	}
+
+	public function isPatronAccountLocked(User $patron, $fine): bool {
 		return false;
 	}
 }

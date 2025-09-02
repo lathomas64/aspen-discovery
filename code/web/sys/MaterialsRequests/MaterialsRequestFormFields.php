@@ -1,14 +1,14 @@
-<?php /** @noinspection PhpMissingFieldTypeInspection */
-
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
+<?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 class MaterialsRequestFormFields extends DataObject {
 	public $__table = 'materials_request_form_fields';
+	public $__displayNameColumn = 'fieldLabel';
 	public $id;
 	public $libraryId;
 	public $weight;
 	public $formCategory;
-	public $fieldLabel; // unique
+	public $fieldLabel;
 	public $fieldType;
 
 	static $fieldTypeOptions = [
@@ -37,6 +37,7 @@ class MaterialsRequestFormFields extends DataObject {
 		'publisher' => 'Publisher',
 		'publicationYear' => 'Publication Year',
 		'id' => 'Request ID Number (staff view only)',
+		'source' => 'Request Source',
 		'staffComments' => 'Staff Comments (staff view only)',
 		'status' => 'Status (staff view only)',
 		'title' => 'Title',
@@ -44,9 +45,12 @@ class MaterialsRequestFormFields extends DataObject {
 	];
 
 
-	/** @noinspection PhpUnusedParameterInspection */
-	static function getObjectStructure($context = ''): array {
-		return [
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -73,7 +77,6 @@ class MaterialsRequestFormFields extends DataObject {
 				'values' => self::$fieldTypeOptions,
 				'default' => 'text',
 			],
-			//			'required'      => array(), // checkbox
 			'weight' => [
 				'property' => 'weight',
 				'type' => 'integer',
@@ -82,6 +85,9 @@ class MaterialsRequestFormFields extends DataObject {
 				'default' => 0,
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
 	/**
@@ -215,6 +221,14 @@ class MaterialsRequestFormFields extends DataObject {
 		$defaultField->formCategory = 'Staff Information';
 		$defaultField->fieldLabel = 'Request Id';
 		$defaultField->fieldType = 'id';
+		$defaultField->weight = count($defaultFieldsToDisplay) + 1;
+		$defaultFieldsToDisplay[] = $defaultField;
+
+		$defaultField = new MaterialsRequestFormFields();
+		$defaultField->libraryId = $libraryId;
+		$defaultField->formCategory = 'Staff Information';
+		$defaultField->fieldLabel = 'Request Source';
+		$defaultField->fieldType = 'source';
 		$defaultField->weight = count($defaultFieldsToDisplay) + 1;
 		$defaultFieldsToDisplay[] = $defaultField;
 

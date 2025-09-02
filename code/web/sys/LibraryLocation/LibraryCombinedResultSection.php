@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection PhpMissingFieldTypeInspection */
 
 require_once ROOT_DIR . '/sys/LibraryLocation/CombinedResultSection.php';
 
@@ -6,18 +6,13 @@ class LibraryCombinedResultSection extends CombinedResultSection {
 	public $__table = 'library_combined_results_section';    // table name
 	public $libraryId;
 
-	static function getObjectStructure($context = ''): array {
-		$library = new Library();
-		$library->orderBy('displayName');
-		if (!UserAccount::userHasPermission('Administer All Libraries')) {
-			$homeLibrary = Library::getPatronHomeLibrary();
-			$library->libraryId = $homeLibrary->libraryId;
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
 		}
-		$library->find();
-		$libraryList = [];
-		while ($library->fetch()) {
-			$libraryList[$library->libraryId] = $library->displayName;
-		}
+
+		$libraryList = Library::getLibraryList(!UserAccount::userHasPermission('Administer All Libraries'));
 
 		$structure = parent::getObjectStructure($context);
 		$structure['libraryId'] = [
@@ -28,6 +23,7 @@ class LibraryCombinedResultSection extends CombinedResultSection {
 			'description' => 'The id of a library',
 		];
 
-		return $structure;
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 }

@@ -1,6 +1,5 @@
-<?php
+<?php /** @noinspection PhpMissingFieldTypeInspection */
 
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
 
 class CronProcessLogEntry extends DataObject {
 	public $__table = 'cron_process_log';   // table name
@@ -15,8 +14,9 @@ class CronProcessLogEntry extends DataObject {
 	public $numSkipped;
 	public $notes;
 
-	function getElapsedTime() {
-		if (!isset($this->endTime) || is_null($this->endTime)) {
+	/** @noinspection PhpUnused */
+	function getElapsedTime() : string {
+		if (empty($this->endTime)) {
 			return "";
 		} else {
 			$elapsedTimeMin = ceil(($this->endTime - $this->startTime) / 60);

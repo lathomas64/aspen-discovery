@@ -1,19 +1,22 @@
 <?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 class LibrarySideLoadScope extends DataObject {
 	public $__table = 'library_sideload_scopes';
-
+	public $__displayNameColumn = 'scope_name';
+	public $scope_name;
 	public $id;
 	public $libraryId;
 	public $sideLoadScopeId;
 
-	static function getObjectStructure($context = ''): array {
-		$allLibraryList = Library::getLibraryList(false);
-		if (!UserAccount::userHasPermission('Administer All Side Loads')) {
-			$libraryList = Library::getLibraryList(true);
-		}else{
-			$libraryList = $allLibraryList;
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
 		}
+
+		$libraryList = Library::getLibraryList(!UserAccount::userHasPermission('Administer All Side Loads'));
+		$allLibraryList = Library::getLibraryList(false);
 
 		$sideLoadScopes = [];
 		require_once ROOT_DIR . '/sys/Indexing/SideLoadScope.php';
@@ -29,7 +32,7 @@ class LibrarySideLoadScope extends DataObject {
 			$sideLoadScopes[$sideLoadScopeData['id']] = $sideLoadScopeData['scope_name'] . ' - ' . $sideLoadScopeData['name'];
 			$sideLoadScopeData = $sideLoadScope->fetchAssoc();
 		}
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -53,9 +56,26 @@ class LibrarySideLoadScope extends DataObject {
 				'description' => 'The id of a library',
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	function getEditLink($context): string {
+	public function fetch(): bool|DataObject|null {
+		$result = parent::fetch();
+		require_once ROOT_DIR . '/sys/Indexing/SideLoadScope.php';
+		$scope = new SideLoadScope();
+		$scope->id = $this->sideLoadScopeId;
+		if ($scope->find(true)) {
+			$this->scope_name = $scope->name;
+		} else {
+			$this->scope_name = '';
+		}
+		return $result;
+	}
+
+	/** @noinspection PhpUnusedParameterInspection */
+	public function getEditLink(string $context): string {
 		return '/SideLoads/Scopes?objectAction=edit&id=' . $this->sideLoadScopeId;
 	}
 }

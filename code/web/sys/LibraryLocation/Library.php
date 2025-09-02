@@ -1,6 +1,5 @@
 <?php /** @noinspection PhpMissingFieldTypeInspection */
 
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/Holiday.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/LibraryFacetSetting.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/LibraryCombinedResultSection.php';
@@ -68,6 +67,7 @@ class Library extends DataObject {
 	public $footerText;
 	public $systemMessage;
 	public $highlightCommunityEngagement;
+	public $highlightCommunityEngagementOpenToEnroll;
 
 	//Explore More Bar Display
 	public $displayExploreMoreBarInSummon;
@@ -124,6 +124,7 @@ class Library extends DataObject {
 	/** @noinspection PhpUnused */
 	public $pTypes; //This is used as part of the indexing process
 	public $facetLabel;
+	/** @noinspection PhpUnused */
 	public $showAvailableAtAnyLocation;
 	public $finePaymentType; //0 = None, 1 = ILS, 2 = PayPal
 	public $showPaymentHistory;
@@ -199,6 +200,7 @@ class Library extends DataObject {
 	public $selfRegistrationUrl;
 	public $selfRegistrationLocationRestrictions;
 	public $institutionCode;
+	public $logSelfRegistrations;
 
 	public $enableCardRenewal;
 	public $showCardRenewalWhenExpirationIsClose;
@@ -219,6 +221,7 @@ class Library extends DataObject {
 	public $enableMaterialsRequest;
 	public $displayMaterialsRequestToPublic;
 	public $allowDeletingILSRequests;
+	public $allowMaterialRequestsBranchChoice;
 	public $externalMaterialsRequestUrl;
 	public /** @noinspection PhpUnused */
 		$eContentLinkRules;
@@ -234,18 +237,21 @@ class Library extends DataObject {
 	public /** @noinspection PhpUnused */
 		$showGoDeeper;
 	public $defaultNotNeededAfterDays;
+	public $maxHoldCancellationDate;
 
 	public /** @noinspection PhpUnused */
 		$publicListsToInclude;
 	public /** @noinspection PhpUnused */
 		$showWikipediaContent;
 	public $showCitationStyleGuides;
+	/** @noinspection PhpUnused */
 	public $restrictOwningBranchesAndSystems;
 	public $allowNameUpdates;
 	public $setUsePreferredNameInIlsOnUpdate;
 	public $replaceAllFirstNameWithPreferredName;
 	public $allowDateOfBirthUpdates;
 	public $allowPatronAddressUpdates;
+	/** @noinspection PhpUnused */
 	public $cityStateField;
 	public $allowPatronPhoneNumberUpdates;
 	public $useAllCapsWhenUpdatingProfile;
@@ -322,6 +328,7 @@ class Library extends DataObject {
 	public /** @noinspection PhpUnused */
 		$includeDplaResults;
 	public $showWhileYouWait;
+	public $showYouMightAlsoLike;
 
 	public $useAllCapsWhenSubmittingSelfRegistration;
 	public $validSelfRegistrationStates;
@@ -332,6 +339,7 @@ class Library extends DataObject {
 		$selfRegistrationSuccessMessage;
 	public /** @noinspection PhpUnused */
 		$selfRegistrationTemplate;
+	/** @noinspection PhpUnused */
 	public $selfRegistrationUserProfile;
 	public $selfRegistrationFormId;
 	public $addSMSIndicatorToPhone;
@@ -380,6 +388,9 @@ class Library extends DataObject {
 	public $showGroupedHoldCopiesCount;
 	public $localIllRequestType;
 	public $maximumLocalIllRequests;
+	public $localIllEmail;
+	/** @noinspection PhpUnused */
+	public $_localIllEmailSuccessMessage;
 	public $ILLSystem;
 	public $interLibraryLoanName;
 	public $interLibraryLoanUrl;
@@ -421,11 +432,13 @@ class Library extends DataObject {
 
 	//Donations
 	public $donationSettingId;
+	/** @noinspection PhpUnused */
 	public $enableDonations;
 
 	//Course Reserves
 	public /** @noinspection PhpUnused */
 		$enableCourseReserves;
+	/** @noinspection PhpUnused */
 	public $courseReserveLibrariesToInclude;
 
 	//Curbside Pickup
@@ -460,6 +473,12 @@ class Library extends DataObject {
 	public $sendStaffEmailOnCampaignCompletion;
 	public $campaignCompletionNewEmail;
 	public $displayCampaignLeaderboard;
+	/** @noinspection PhpUnused */
+	public $communityEngagementAdminUserSelect;
+	public $displayOnlyUsersForLocationInUserAdmin;
+	public $allowAdminToEnrollUsersInAdminView;
+	public $displayDigitalRewardOnlyWhenAwarded;
+	public $digitalRewardPlaceholderImage;
 
 	//SHAREit
 	public $repeatInShareIt;
@@ -475,7 +494,7 @@ class Library extends DataObject {
 	public $enableTalpaSearch;
 	public $talpaSettingsId;
 
-
+	/** @noinspection PhpUnused */
 	public $allowUpdatingHolidaysFromILS;
 
 	public $useSeriesSearchIndex;
@@ -517,7 +536,7 @@ class Library extends DataObject {
 			'deluxeCertifiedPaymentsSettingId',
 			'paypalPayflowSettingId',
 			'squareSettingId',
-			'sripteSettingId',
+			'stripeSettingId',
 			'heyCentricSettingId'
 		];
 	}
@@ -530,7 +549,13 @@ class Library extends DataObject {
 		];
 	}
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
+		global $enabledModules;
 		// get the structure for the library system's holidays
 		$holidaysStructure = Holiday::getObjectStructure($context);
 
@@ -963,6 +988,7 @@ class Library extends DataObject {
 
 		/** @noinspection HtmlRequiredAltAttribute */
 		/** @noinspection RequiredAttributes */
+		/** @noinspection HttpUrlsUsage */
 		$structure = [
 			'isDefault' => [
 				'property' => 'isDefault',
@@ -1082,6 +1108,16 @@ class Library extends DataObject {
 						'type' => 'checkbox',
 						'label' => 'Highlight Campaign in Account Page',
 						'description' => 'Whether or not to add a box highlighting campaigns to the top of the account page.',
+						'hideInLists' => true,
+						'default' => false,
+						'permissions' => ['Library Theme Configuration'],
+						'onchange' => 'return AspenDiscovery.Admin.highlightCampaignsOpenToEnroll();',
+					],
+					'highlightCommunityEngagementOpenToEnroll' => [
+						'property' => 'highlightCommunityEngagementOpenToEnroll',
+						'type' => 'checkbox',
+						'label' => 'Highlight Campaigns That Are Open For Enrollment in Campaign Highlight Box',
+						'description' => 'Whether or not to display all eligible campaigns that are open for enrollment in the campaign highlight banner.',
 						'hideInLists' => true,
 						'default' => false,
 						'permissions' => ['Library Theme Configuration'],
@@ -1367,8 +1403,30 @@ class Library extends DataObject {
 					],
 					'showWhileYouWait' => [
 						'property' => 'showWhileYouWait',
-						'type' => 'checkbox',
+						'type' => 'enum',
+						'values' => [
+							'0' => 'No',
+							'1' => 'Yes, include materials available in any format.',
+							'2' => 'Yes, include materials available in the same format only.'
+						],
 						'label' => 'Show While You Wait',
+						'description' => 'Whether or not the user should be shown suggestions of other titles they might like.',
+						'note' => 'To use this setting effectively you should include',
+						'hideInLists' => true,
+						'default' => 1,
+						'permissions' => ['Library ILS Options'],
+					],
+					'showYouMightAlsoLike' => [
+						'property' => 'showYouMightAlsoLike',
+						'type' => 'enum',
+						'values' => [
+							'0' => 'No',
+							'1' => 'Yes, include materials in global scope in any format.',
+							'4' => 'Yes, include materials in global scope in the same format only.',
+							'2' => 'Yes, include materials in local scope in any format.',
+							'3' => 'Yes, include materials in local scope in the same format only.'
+						],
+						'label' => 'Show You Might Also Like',
 						'description' => 'Whether or not the user should be shown suggestions of other titles they might like.',
 						'hideInLists' => true,
 						'default' => 1,
@@ -1378,7 +1436,7 @@ class Library extends DataObject {
 						'property' => 'showMessagingSettings',
 						'type' => 'checkbox',
 						'label' => 'Show Messaging Settings',
-						'note' => 'Applies to Koha and Symphony Only',
+						'note' => 'Applies to Koha, Symphony, and Sierra Only',
 						'description' => 'Whether or not the user should be able to view their messaging settings.',
 
 						'hideInLists' => true,
@@ -1715,8 +1773,8 @@ class Library extends DataObject {
 								'property' => 'replaceAllFirstNameWithPreferredName',
 								'type' => 'checkbox',
 								'label' => 'Use Preferred Name In Place of First Name',
-								'description' => 'Applies to Koha Only, Verions 24.11 onwards. Use the user\'s preferred name from their ILS in place of their first name in all instances where their first name would be used e.g. email templates',
-								'note' => 'Applies to Koha Only, Verions 24.11 onwards',
+								'description' => 'Applies to Koha Only, Versions 24.11 onwards. Use the user\'s preferred name from their ILS in place of their first name in all instances where their first name would be used e.g. email templates',
+								'note' => 'Applies to Koha Only, Versions 24.11 onwards',
 								'hideInLists' => true,
 								'default' => 0,
 								'readOnly' => false,
@@ -2015,10 +2073,29 @@ class Library extends DataObject {
 							'showHoldCancelDate' => [
 								'property' => 'showHoldCancelDate',
 								'type' => 'checkbox',
-								'label' => 'Show Cancellation Date',
-								'description' => 'Whether or not the patron should be able to set a cancellation date (not needed after date) when placing holds.',
+								'label' => 'Show Hold Cancellation Date',
+								'description' => 'Whether or not patrons should be able to set a cancellation date (i.e., not needed after date) when placing holds on this catalog.',
 								'hideInLists' => true,
 								'default' => 1,
+								'onchange' => 'return AspenDiscovery.Admin.updateHoldCancellationDateFields();',
+							],
+							'defaultNotNeededAfterDays' => [
+								'property' => 'defaultNotNeededAfterDays',
+								'type' => 'integer',
+								'label' => 'Default Hold Cancellation Date',
+								'description' => 'Number of days to use for not needed after date by default. Use -1 for no default.',
+								'hideInLists' => true,
+								'default' => -1,
+								'permissions' => ['Library ILS Connection'],
+							],
+							'maxHoldCancellationDate' => [
+								'property' => 'maxHoldCancellationDate',
+								'type' => 'integer',
+								'label' => 'Maximum Hold Cancellation Date',
+								'description' => 'Maximum number of days patrons can set for hold cancellation date on this catalog. Use -1 for no limit.',
+								'hideInLists' => true,
+								'default' => -1,
+								'permissions' => ['Library ILS Connection'],
 							],
 							'showHoldPosition' => [
 								'property' => 'showHoldPosition',
@@ -2100,14 +2177,6 @@ class Library extends DataObject {
 								'description' => 'Number of days that a user can suspend a hold for. Use -1 for no limit.',
 								'hideInLists' => true,
 								'default' => 365,
-								'permissions' => ['Library ILS Connection'],
-							],
-							'defaultNotNeededAfterDays' => [
-								'property' => 'defaultNotNeededAfterDays',
-								'type' => 'integer',
-								'label' => 'Default Not Needed After Days',
-								'description' => 'Number of days to use for not needed after date by default. Use -1 for no default.',
-								'hideInLists' => true,
 								'permissions' => ['Library ILS Connection'],
 							],
 							'inSystemPickupsOnly' => [
@@ -2492,6 +2561,13 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => '',
 							],
+							'logSelfRegistrations' => [
+								'property' => 'logSelfRegistrations',
+								'type' => 'checkbox',
+								'label' => 'Log Self Registrations',
+								'description' => 'Whether or not to log self registrations (to approve in Review Library Registrations) (Sierra only)',
+								'default' => false,
+							],
 						],
 					],
 					'thirdPartyRegistrationSection' => [
@@ -2744,15 +2820,6 @@ class Library extends DataObject {
 						'hideInLists' => true,
 						'default' => -1,
 					],
-					/*//PROPAY'proPaySettingId' => [
-						'property' => 'proPaySettingId',
-						'type' => 'enum',
-						'values' => $proPaySettings,
-						'label' => 'ProPay Settings',
-						'description' => 'The ProPay settings to use',
-						'hideInLists' => true,
-						'default' => -1,
-					],*/
 					'xpressPaySettingId' => [
 						'property' => 'xpressPaySettingId',
 						'type' => 'enum',
@@ -3071,9 +3138,11 @@ class Library extends DataObject {
 			'useSeriesSearchIndex' => [
 				'property' => 'useSeriesSearchIndex',
 				'type' => 'enum',
-				'values' => [
+				'values' => array_key_exists('Series', $enabledModules) ? [
 					'0' => 'Grouped Work Based Series Search',
 					'1' => 'Aspen Series Search',
+				] : [
+					'0' => 'Grouped Work Based Series Search',
 				],
 				'label' => 'Series Search Mode',
 				'hideInLists' => false,
@@ -3386,6 +3455,14 @@ class Library extends DataObject {
 						'onchange' => 'return AspenDiscovery.Admin.updateMaterialsRequestFields();',
 						'default' => 1,
 					],
+					'allowMaterialRequestsBranchChoice' => [
+						'property' => 'allowMaterialRequestsBranchChoice',
+						'type' => 'checkbox',
+						'label' => 'Allow Material Requests Branch Choice',
+						'description' => 'Whether or not patrons can choose a branch for their Materials Request.',
+						'hideInLists' => true,
+						'default' => 0,
+					],
 					'externalMaterialsRequestUrl' => [
 						'property' => 'externalMaterialsRequestUrl',
 						'type' => 'text',
@@ -3575,6 +3652,22 @@ class Library extends DataObject {
 						'description' => 'The system to use when generating local ILL requests within the ILS',
 						'hideInLists' => true,
 						'default' => 0,
+					],
+					'localIllEmail' => [
+						'property' => 'localIllEmail',
+						'type' => 'email',
+						'label' => 'Email to send local ILL requests that cannot be placed automatically',
+						'description' => 'The email address to send local ILL requests that cannot be placed automatically',
+						'maxLength' => 255,
+						'default' => ''
+					],
+					'localIllEmailSuccessMessage' => [
+						'property' => 'localIllEmailSuccessMessage',
+						'type' => 'translatableTextBlock',
+						'label' => 'Local ILL Email Success Message',
+						'description' => 'The success message to display when a local ILL request is successfully sent via email',
+						'defaultTextFile' => 'Library_localIllEmailSuccessMessage.MD',
+						'hideInLists' => true,
 					],
 					'maximumLocalIllRequests' => [
 						'property' => 'maximumLocalIllRequests',
@@ -3804,6 +3897,52 @@ class Library extends DataObject {
 						],
 						'default' => 'displayBranch',
 					],
+					'allowAdminToEnrollUsersInAdminView' => [
+						'property' => 'allowAdminToEnrollUsersInAdminView',
+						'type' => 'checkbox',
+						'label' => 'Allow Admin to Enroll Users in Admin View',
+						'description' => 'Allow admin to enroll users via the admin view page',
+						'default' => 0,
+						'hideInLists'=> true,
+					],
+					'communityEngagementAdminUserSelect' => [
+						'property' => 'communityEngagementAdminUserSelect',
+						'type' => 'enum',
+						'label' => 'Admin View User Select',
+						'description' => 'Whether to use a dropdown or a search bar to select users in the Community Engagement Admin View section',
+						'values' => [
+							'dropdown' => 'Dropdown',
+							'searchbar' => 'Search bar',
+						],
+						'default' => 'dropdown',
+					],
+					'displayOnlyUsersForLocationInUserAdmin' => [
+						'property' => 'displayOnlyUsersForLocationInUserAdmin',
+						'type' => 'checkbox',
+						'label' => 'Display only users for current library location in user admin view.',
+						'description' => 'Whether to display only the users who have their home location set to the current library when searching bu user in the admin view',
+						'default' => 0,
+						'hideInLists' => true,
+					],
+					'displayDigitalRewardOnlyWhenAwarded' => [
+						'property' => 'displayDigitalRewardOnlyWhenAwarded',
+						'type' => 'checkbox',
+						'label' => 'Display Digital Reward Only When Awarded',
+						'description' => 'Whether to always display the reward or display only on completion of milestone or campaign',
+						'hideInLists' => true,
+						'default' => 0,
+						'onchange' => 'return AspenDiscovery.Admin.displayDigitalRewardPlaceholderUpload();',
+					],
+					'digitalRewardPlaceholderImage' => [
+						'property' => 'digitalRewardPlaceholderImage',
+						'type' => 'image',
+						'label' => 'Digital Reward Placeholder Image',
+						'description' => 'The image to show until the reward has been granted',
+						'hideInLists' => true,
+						'required' => false,
+						'maxWidth' => 300,
+						'maxHeight' => 300,
+					],
 					'sendStaffEmailOnCampaignCompletion' => [
 						'property' => 'sendStaffEmailOnCampaignCompletion',
 						'type' => 'checkbox',
@@ -3921,8 +4060,8 @@ class Library extends DataObject {
 						'type' => 'integer',
 						'label' => 'Hoopla Library ID',
 						'description' => 'The ID Number Hoopla uses for this library',
+						'note' => 'Set to 0 to replace the "Check Out" and "Place Hold" buttons with the "Access Online" button.',
 						'hideInLists' => true,
-						'forcesReindex' => true,
 					],
 					'hooplaScopeId' => [
 						'property' => 'hooplaScopeId',
@@ -4213,8 +4352,8 @@ class Library extends DataObject {
 					'allowUpdatingHolidaysFromILS' => [
 						'property' => 'allowUpdatingHolidaysFromILS',
 						'type' => 'checkbox',
-						'label' => 'Automatically update holidays from the ILS',
-						'description' => 'Whether holidays should be automatically updated (Koha Only).',
+						'label' => 'Automatically Update Holidays from the ILS',
+						'description' => 'Whether holidays should be automatically updated from the ILS.',
 						'hideInLists' => true,
 						'default' => 1,
 						'permissions' => ['Library ILS Connection'],
@@ -4383,14 +4522,24 @@ class Library extends DataObject {
 			unset($structure['ilsSection']['properties']['selfRegistrationSection']['properties']['selfRegistrationTemplate']);
 		} else {
 			unset($structure['ilsSection']['properties']['selfRegistrationSection']['properties']['bypassReviewQueueWhenUpdatingProfile']);
+			unset($structure['holidaysSection']['properties']['allowUpdatingHolidaysFromILS']);
 		}
 		//TODO: This will eventually need to be enabled/disabled by the library, it is currently off for everyone
 		if (true) {
 			unset($structure['casSection']);
 		}
 		global $enabledModules;
-		if (!array_key_exists('EBSCO EDS', $enabledModules)) {
-			unset($structure['edsSection']);
+		if (!array_key_exists('EBSCO EDS', $enabledModules) && !array_key_exists('EBSCOhost', $enabledModules)) {
+			unset($structure['ebscoSection']);
+		} else {
+			if (!array_key_exists('EBSCO EDS', $enabledModules)) {
+				unset($structure['ebscoSection']['properties']['edsSettingsId']);
+				unset($structure['exploreMoreBarSection']['properties']['displayExploreMoreBarInEbscoEds']);
+			}
+			if (!array_key_exists('EBSCOhost', $enabledModules)) {
+				unset($structure['ebscoSection']['properties']['ebscohostSearchSettingId']);
+				unset($structure['exploreMoreBarSection']['properties']['displayExploreMoreBarInEbscoHost']);
+			}
 		}
 		if (!array_key_exists('Summon', $enabledModules)) {
 			unset($structure['summonSection']);
@@ -4419,14 +4568,26 @@ class Library extends DataObject {
 		if (!array_key_exists('Single sign-on', $enabledModules)) {
 			unset($structure['ssoSection']);
 		}
-		if (!$catalog || !$catalog->hasIlsConsentSupport()) {
-			unset($structure['dataProtectionRegulations']['properties']['ilsConsentEnabled']);
-		}
 		if (!array_key_exists('Talpa Search', $enabledModules)) {
 			unset($structure['talpaSearchSection']);
 		}
+		if (!array_key_exists('Community Engagement', $enabledModules)) {
+			unset($structure['communityEngagement']);
+			unset($structure['displaySection']['properties']['highlightCommunityEngagement']);
+			unset($structure['displaySection']['properties']['highlightCommunityEngagementOpenToEnroll']);
+		}
+		if (!array_key_exists('Axis 360', $enabledModules)) {
+			unset($structure['axis360Section']);
+		}
+		if (!array_key_exists('Palace Project', $enabledModules)) {
+			unset($structure['palaceProjectSection']);
+		}
+		if (!$catalog || !$catalog->hasIlsConsentSupport()) {
+			unset($structure['dataProtectionRegulations']['properties']['ilsConsentEnabled']);
+		}
 
-		return $structure;
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
 	static $searchLibrary = [];
@@ -4553,7 +4714,7 @@ class Library extends DataObject {
 	 * @param User|null $tmpUser
 	 * @return Library|null
 	 */
-	static function getPatronHomeLibrary($tmpUser = null) : ?Library {
+	static function getPatronHomeLibrary(?User $tmpUser = null) : ?Library {
 		//Finally, check to see if the user has logged in and if so, use that library
 		if ($tmpUser != null) {
 			return self::getLibraryForLocation($tmpUser->homeLocationId);
@@ -4566,17 +4727,22 @@ class Library extends DataObject {
 		}
 	}
 
+	private static $_librariesByLocationId = [];
 	static function getLibraryForLocation($locationId) : ?Library {
-		if (isset($locationId)) {
-			$libLookup = new Library();
-			$libLookup->whereAdd('libraryId = (SELECT libraryId FROM location WHERE locationId = ' . $libLookup->escape($locationId) . ')');
-			$libLookup->find();
-			if ($libLookup->getNumResults() > 0) {
-				$libLookup->fetch();
-				return clone $libLookup;
+		if (!isset(self::$_librariesByLocationId[$locationId])) {
+			self::$_librariesByLocationId[$locationId] = null;
+			if (isset($locationId) && $locationId > 0) {
+				$libLookup = new Library();
+				$libLookup->whereAdd('libraryId = (SELECT libraryId FROM location WHERE locationId = ' . $libLookup->escape($locationId) . ')');
+				$libLookup->find();
+				if ($libLookup->getNumResults() > 0) {
+					$libLookup->fetch();
+					self::$_librariesByLocationId[$locationId] = clone $libLookup;
+				}
 			}
 		}
-		return null;
+
+		return self::$_librariesByLocationId[$locationId];
 	}
 
 	public function __get($name) {
@@ -4648,7 +4814,7 @@ class Library extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::update()
 	 */
-	public function update($context = '') {
+	public function update(string $context = '') : int|bool {
 		//Make sure we have no other default libraries since
 		if ($this->isDefault == 1 && $this->_changedFields != null) {
 			if (in_array('isDefault', $this->_changedFields)) {
@@ -4692,6 +4858,7 @@ class Library extends DataObject {
 			$this->saveTextBlockTranslations('paymentHistoryExplanation');
 			$this->saveTextBlockTranslations('costSavingsExplanationEnabled');
 			$this->saveTextBlockTranslations('costSavingsExplanationDisabled');
+			$this->saveTextBlockTranslations('localIllEmailSuccessMessage');
 			if (!empty($this->_changedFields) && in_array('cookieStorageConsent', $this->_changedFields)) {
 				$this->updateLocalAnalyticsPreferences();
 			}
@@ -4746,7 +4913,7 @@ class Library extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::insert()
 	 */
-	public function insert($context = '') {
+	public function insert(string $context = '') : int|bool {
 		$ret = parent::insert();
 		if ($ret !== FALSE) {
 			$this->saveHolidays();
@@ -4765,6 +4932,7 @@ class Library extends DataObject {
 			$this->saveTextBlockTranslations('paymentHistoryExplanation');
 			$this->saveTextBlockTranslations('costSavingsExplanationEnabled');
 			$this->saveTextBlockTranslations('costSavingsExplanationDisabled');
+			$this->saveTextBlockTranslations('localIllEmailSuccessMessage');
 		}
 		return $ret;
 	}
@@ -4904,24 +5072,30 @@ class Library extends DataObject {
 		return $this->_libraryLinks;
 	}
 
-	public function getCloudLibraryScope() : null|string|int {
-		if ($this->_cloudLibraryScope == null && $this->libraryId) {
-			require_once ROOT_DIR . '/sys/CloudLibrary/LibraryCloudLibraryScope.php';
-			$libraryCloudLibraryScope = new LibraryCloudLibraryScope();
-			$libraryCloudLibraryScope->libraryId = $this->libraryId;
-			if ($libraryCloudLibraryScope->find(true)) {
-				require_once ROOT_DIR . '/sys/CloudLibrary/CloudLibraryScope.php';
-				$cloudLibraryScope = new CloudLibraryScope();
-				$cloudLibraryScope->id = $libraryCloudLibraryScope->scopeId;
-				if ($cloudLibraryScope->find(true)) {
-					$this->_cloudLibraryScope = $cloudLibraryScope->id;
+	public function getCloudLibraryScope() : int {
+		if ($this->_cloudLibraryScope === null) {
+			if ($this->libraryId) {
+				require_once ROOT_DIR . '/sys/CloudLibrary/LibraryCloudLibraryScope.php';
+				$libraryCloudLibraryScope = new LibraryCloudLibraryScope();
+				$libraryCloudLibraryScope->libraryId = $this->libraryId;
+				if ($libraryCloudLibraryScope->find(true)) {
+					require_once ROOT_DIR . '/sys/CloudLibrary/CloudLibraryScope.php';
+					$cloudLibraryScope = new CloudLibraryScope();
+					$cloudLibraryScope->id = $libraryCloudLibraryScope->scopeId;
+					if ($cloudLibraryScope->find(true)) {
+						$this->_cloudLibraryScope = $cloudLibraryScope->id;
+					}
 				}
+			}
+			// If still not set, default to '-1', which corresponds to 'none'.
+			if ($this->_cloudLibraryScope === null) {
+				$this->_cloudLibraryScope = -1;
 			}
 		}
 		return $this->_cloudLibraryScope;
 	}
 
-	public function getHooplaScope() {
+	public function getHooplaScope() : ?HooplaScope {
 		if ($this->hooplaScopeId != null) {
 			require_once ROOT_DIR . '/sys/Hoopla/HooplaScope.php';
 			$hooplaScope = new HooplaScope();
@@ -4967,7 +5141,7 @@ class Library extends DataObject {
 
 	public function getPrimaryTheme() : ?LibraryTheme {
 		$allThemes = $this->getThemes();
-		if ($allThemes !== false && !empty($allThemes)) {
+		if (!empty($allThemes)) {
 			return reset($allThemes);
 		}else{
 			return $this->getOrSetDefaultLibraryTheme();
@@ -5033,7 +5207,7 @@ class Library extends DataObject {
 				}
 			}
 
-			// If all themes would be deleted, prevent it.
+			// If all themes will be deleted, prevent it.
 			if ($themesToDelete > 0 && $themesToDelete >= $totalThemes) {
 				$preventionMessage = translate([
 					'text' => 'Cannot delete all themes from a library. Each library must have at least one theme assigned to it.',
@@ -5167,7 +5341,7 @@ class Library extends DataObject {
 		while ($location->fetch()) {
 			$locations[] = clone $location;
 		}
-		//For each location, find all users with a amtching homelocationId
+		//For each location, find all users with a matching homeLocationId
 		foreach ($locations as $location) {
 			$user = new User();
 			$user->homeLocationId = $location->locationId;
@@ -5260,7 +5434,7 @@ class Library extends DataObject {
 
 	protected $_eventFacetSettings = null;
 
-	public function getEventFacetSettings() {
+	public function getEventFacetSettings() : ?LibraryEventsFacetSetting {
 		if ($this->_eventFacetSettings == null) {
 			try {
 				require_once ROOT_DIR . '/sys/Events/LibraryEventsFacetSetting.php';
@@ -5304,7 +5478,7 @@ class Library extends DataObject {
 
 	protected $_websiteFacetSettings = null;
 
-	/** @return WebsiteFacetGroup */
+	/** @return ?WebsiteFacetGroup */
 	public function getWebsiteFacetSettings() : ?WebsiteFacetGroup{
 		if ($this->_websiteFacetSettings == null) {
 			try {
@@ -5329,7 +5503,7 @@ class Library extends DataObject {
 
 	protected $_layoutSettings = null;
 
-	/** @return LayoutSetting */
+	/** @return ?LayoutSetting */
 	public function getLayoutSettings() : ?LayoutSetting{
 		if ($this->_layoutSettings == null) {
 			try {
@@ -5345,12 +5519,13 @@ class Library extends DataObject {
 		return $this->_layoutSettings;
 	}
 
-	function getEditLink($context): string {
+	/** @noinspection PhpUnusedParameterInspection */
+	public function getEditLink(string $context): string {
 		return '/Admin/Libraries?objectAction=edit&id=' . $this->libraryId;
 	}
 
-	private static $_filteredList = null;
-	private static $_fullList = null;
+	private static $_filteredList = [];
+	private static $_fullList = [];
 
 	/**
 	 * @param boolean $restrictByHomeLibrary whether only the patron's home library should be returned
@@ -5358,12 +5533,10 @@ class Library extends DataObject {
 	 * @return array
 	 */
 	static function getLibraryList(bool $restrictByHomeLibrary, int $accountProfileId = -1): array {
-		if ($accountProfileId == -1) {
-			if ($restrictByHomeLibrary && !is_null(Library::$_filteredList)) {
-				return Library::$_filteredList;
-			}elseif (!is_null(Library::$_fullList)){
-				return Library::$_fullList;
-			}
+		if ($restrictByHomeLibrary && array_key_exists($accountProfileId, Library::$_filteredList)) {
+			return Library::$_filteredList[$accountProfileId];
+		}elseif (!$restrictByHomeLibrary && array_key_exists($accountProfileId, Library::$_fullList)){
+			return Library::$_fullList[$accountProfileId];
 		}
 		$library = new Library();
 		$library->orderBy('displayName');
@@ -5395,14 +5568,11 @@ class Library extends DataObject {
 		while ($library->fetch()) {
 			$libraryList[$library->libraryId] = $library->displayName;
 		}
-		if ($accountProfileId == -1) {
-			if ($restrictByHomeLibrary) {
-				return Library::$_filteredList = $libraryList;
-			}else{
-				return Library::$_fullList = $libraryList;
-			}
+		if ($restrictByHomeLibrary) {
+			return Library::$_filteredList[$accountProfileId] = $libraryList;
+		}else{
+			return Library::$_fullList[$accountProfileId] = $libraryList;
 		}
-		return $libraryList;
 	}
 
 	static $libraryListAsObjects = null;
@@ -5489,26 +5659,6 @@ class Library extends DataObject {
 			}
 		}
 		return $this->_overdriveScopes;
-	}
-
-	public function getOverdriveScopeForSetting(int $settingId) : ?OverDriveScope {
-		$overDriveScopes = $this->getOverdriveScopeObjects();
-		foreach ($overDriveScopes as $overDriveScope) {
-			if ($overDriveScope->settingId == $settingId) {
-				return $overDriveScope;
-			}
-		}
-		return null;
-	}
-
-	public function getLibraryOverdriveScopeForSetting(int $settingId) : ?LibraryOverDriveScope {
-		$libraryOverDriveScopes = $this->getLibraryOverdriveScopes();
-		foreach ($libraryOverDriveScopes as $libraryOverDriveScope) {
-			if ($libraryOverDriveScope->getOverDriveScope()->settingId == $settingId) {
-				return $libraryOverDriveScope;
-			}
-		}
-		return null;
 	}
 
 	/** @var LibraryOverDriveScope[] */
@@ -5639,20 +5789,24 @@ class Library extends DataObject {
 		return $this->_materialsRequestFormats;
 	}
 
+	private $_locations = null;
 	/**
 	 * @return Location[]
 	 */
 	public function getLocations(): array {
-		$locations = [];
-		$location = new Location();
-		$location->orderBy('isMainBranch desc');
-		$location->orderBy('displayName');
-		$location->libraryId = $this->libraryId;
-		$location->find();
-		while ($location->fetch()) {
-			$locations[$location->locationId] = clone($location);
+		if ($this->_locations == null) {
+			$locations = [];
+			$location = new Location();
+			$location->orderBy('isMainBranch desc');
+			$location->orderBy('displayName');
+			$location->libraryId = $this->libraryId;
+			$location->find();
+			while ($location->fetch()) {
+				$locations[$location->locationId] = clone($location);
+			}
+			$this->_locations = $locations;
 		}
-		return $locations;
+		return $this->_locations;
 	}
 
 	/**
@@ -5673,7 +5827,7 @@ class Library extends DataObject {
 	/**
 	 * @return GeneralSetting|null
 	 */
-	public function getLiDAGeneralSettings() {
+	public function getLiDAGeneralSettings() : ?GeneralSetting {
 		$settings = null;
 
 		$setting = new GeneralSetting();
@@ -6095,7 +6249,7 @@ class Library extends DataObject {
 		return $this->_mainLocation;
 	}
 
-	public function getAlternateLibraryCardOptions() {
+	public function getAlternateLibraryCardOptions() : array {
 		$useAlternateLibraryCardForCloudLibrary = false;
 		require_once ROOT_DIR . '/sys/CloudLibrary/CloudLibraryScope.php';
 		$cloudLibraryScope = new CloudLibraryScope();

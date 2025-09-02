@@ -1,4 +1,4 @@
-<?php
+<?php /** @noinspection PhpMissingFieldTypeInspection */
 
 class FileUpload extends DataObject {
 	public $__table = 'file_uploads';
@@ -10,12 +10,19 @@ class FileUpload extends DataObject {
 	public $owningLibrary;
 	public $sharing;
 	public $sharedWithLibrary;
+	public $deleted;
+	public $dateDeleted;
+	public $deletedBy;
 
 	public function getUniquenessFields(): array {
 		return ['id'];
 	}
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
 		$allSharingOptions = [
 			0 => 'Not Shared',
 			1 => 'Selected Library',
@@ -38,7 +45,7 @@ class FileUpload extends DataObject {
 
 		$libraryListForSharing = $libraryListForSharing + $libraryList;
 
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -100,21 +107,21 @@ class FileUpload extends DataObject {
 				'readOnly' => true,
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	public function getFileName() {
+	public function getFileName() : string {
 		return basename($this->fullPath);
 	}
 
-	function insert($context = '') {
+	public function insert(string $context = '') : int|bool {
 		$this->makeThumbnail();
 		return parent::insert();
 	}
 
-	/**
-	 * @return int|bool
-	 */
-	function update($context = '') {
+	public function update(string $context = '') : bool|int {
 		$this->makeThumbnail();
 		return parent::update();
 	}
@@ -191,5 +198,53 @@ class FileUpload extends DataObject {
 
 	public function okToExport(array $selectedFilters): bool {
 		return true;
+	}
+
+	public function delete(bool $useWhere = false, bool $hardDelete = false) : bool|int {
+		if ($hardDelete) {
+			if (!empty($this->fullPath) && file_exists($this->fullPath)) {
+				@unlink($this->fullPath);
+			}
+			if (!empty($this->thumbFullPath) && file_exists($this->thumbFullPath)) {
+				@unlink($this->thumbFullPath);
+			}
+		}
+		return parent::delete($useWhere, $hardDelete);
+	}
+
+	public function supportsSoftDelete(): bool {
+		return true;
+	}
+
+	/**
+	 * Purge expired soft-deleted files: delete disk files then DB rows.
+	 *
+	 * @param int $olderThanSecs
+	 * @return int
+	 */
+	public static function purgeExpired(int $olderThanSecs = 2592000): int {
+		$cutOff = time() - $olderThanSecs;
+		$expiredIds = [];
+		$fetchObj = new static();
+		$fetchObj->deleted = 1;
+		// dateDeleted > 0 = Leave files older than the Object Restorations implementation alone for now.
+		$fetchObj->whereAdd("dateDeleted > 0 AND dateDeleted < $cutOff");
+		$fetchObj->find();
+		while ($fetchObj->fetch()) {
+			// Remove file and thumbnail from disk.
+			if (!empty($fetchObj->fullPath) && file_exists($fetchObj->fullPath)) {
+				@unlink($fetchObj->fullPath);
+			}
+			if (!empty($fetchObj->thumbFullPath) && file_exists($fetchObj->thumbFullPath)) {
+				@unlink($fetchObj->thumbFullPath);
+			}
+			$expiredIds[] = $fetchObj->id;
+		}
+		if (empty($expiredIds)) {
+			return 0;
+		}
+		$deleteObj = new static();
+		$deleteObj->whereAddIn($deleteObj->getPrimaryKey(), $expiredIds, false);
+		return $deleteObj->delete(true);
 	}
 }

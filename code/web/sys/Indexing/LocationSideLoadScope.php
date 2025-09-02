@@ -1,13 +1,20 @@
 <?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 class LocationSideLoadScope extends DataObject {
 	public $__table = 'location_sideload_scopes';
-
+	public $__displayNameColumn = 'scope_name';
+	public $scope_name;
 	public $id;
 	public $locationId;
 	public $sideLoadScopeId;
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
 		$sideLoadScopes = [];
 		require_once ROOT_DIR . '/sys/Indexing/SideLoadScope.php';
 		$sideLoadScope = new SideLoadScope();
@@ -23,7 +30,7 @@ class LocationSideLoadScope extends DataObject {
 		}else{
 			$locationsList = $allLocationsList;
 		}
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -48,9 +55,26 @@ class LocationSideLoadScope extends DataObject {
 				'required' => true,
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	function getEditLink($context): string {
+	public function fetch(): bool|DataObject|null {
+		$result = parent::fetch();
+		require_once ROOT_DIR . '/sys/Indexing/SideLoadScope.php';
+		$scope = new SideLoadScope();
+		$scope->id = $this->sideLoadScopeId;
+		if ($scope->find(true)) {
+			$this->scope_name = $scope->name;
+		} else {
+			$this->scope_name = (string)$this->sideLoadScopeId;
+		}
+		return $result;
+	}
+
+	/** @noinspection PhpUnusedParameterInspection */
+	public function getEditLink(string $context): string {
 		return '/SideLoads/Scopes?objectAction=edit&id=' . $this->sideLoadScopeId;
 	}
 }

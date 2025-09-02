@@ -33,8 +33,12 @@ AspenDiscovery.Lists = (function(){
 			return this.submitListForm('makePrivate');
 		},
 
-		deleteListAction: function (){
-			AspenDiscovery.confirm("Delete List?", "Are you sure you want to delete this entire list? The list and all titles within it will be permanently deleted.","Yes", "No", true, "AspenDiscovery.Lists.doDeleteList()", "btn-danger");
+		deleteListAction() {
+			const url = Globals.path + '/MyAccount/AJAX?method=getDeleteListForm';
+			$.getJSON(url, function(data) {
+				const { title, modalBody, modalButtons } = data;
+				AspenDiscovery.showMessageWithButtons(title, modalBody, modalButtons, false, '', false, false, true);
+			}).fail(AspenDiscovery.ajaxFail);
 			return false;
 		},
 
@@ -42,8 +46,16 @@ AspenDiscovery.Lists = (function(){
 			window.location.href = Globals.path + '/MyAccount/MyList/' + listId + '?delete=' + listEntryId;
 		},
 
-		doDeleteList: function () {
-			this.submitListForm('deleteList');
+		doDeleteList() {
+			$('#confirmDeleteList .fa-spinner').show();
+			$('#confirmDeleteList').prop('disabled', true);
+			const hardDelete = $('#optOutSoftDeletion').is(':checked');
+
+			if (hardDelete) {
+				this.submitListForm('deleteListHard');
+			} else {
+				this.submitListForm('deleteList');
+			}
 		},
 
 		updateListAction: function (){

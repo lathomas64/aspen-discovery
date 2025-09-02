@@ -690,9 +690,11 @@ AspenDiscovery.Account = (function () {
 					} else if (response.result.success === false && response.result.has2FA === true) {
 						AspenDiscovery.showMessageWithButtons(response.result.title, response.result.body, response.result.buttons);
 					} else {
+						loadingElem.hide();
 						loginErrorElem.html(response.result.message).show();
 					}
 				}, 'json').fail(function () {
+					loadingElem.hide();
 					loginErrorElem.text("There was an error processing your login, please try again.").show();
 				})
 			}
@@ -1945,7 +1947,12 @@ AspenDiscovery.Account = (function () {
 			}).fail(AspenDiscovery.ajaxFail);
 		},
 		handlePayPalError: function (error) {
-			AspenDiscovery.showMessage('Error', 'There was an error completing your payment. ' + error, true);
+			// Wait and check if a message is already open before showing PayPal popup errors.
+			setTimeout(function() {
+				if (!$("#modalDialog").hasClass("in")) {
+					AspenDiscovery.showMessage('Error', 'There was an error completing your payment. ' + error, true);
+				}
+			}, 300, error);
 		},
 		cancelPayPalError: function () {
 			AspenDiscovery.showMessage('Payment cancelled', 'Your payment has successfully been cancelled.', true);
@@ -2184,8 +2191,15 @@ AspenDiscovery.Account = (function () {
 			};
 			// noinspection JSUnresolvedFunction
 			$.getJSON(url, params, function (data) {
-				AspenDiscovery.showMessage(data.title, data.message, false);
+				AspenDiscovery.showMessageWithButtons(data.title, data.message, data.modalButtons);
 			}).fail(AspenDiscovery.ajaxFail);
+			return false;
+		},
+
+		selfRegistrationAgreeToTOS: function () {
+			$("#tosCheckbox").prop("checked", true);
+			$("div.form-group button[value='Register']").prop("disabled", false);
+			AspenDiscovery.closeLightbox();
 			return false;
 		},
 
@@ -2384,16 +2398,35 @@ AspenDiscovery.Account = (function () {
 				location.reload();
 			});
 		},
-		deleteSelectedLists: function () {
-			var selectedLists = AspenDiscovery.getSelectedLists();
-			if (selectedLists) {
-				if (confirm("Are you sure you want to delete the selected lists?")) {
-					$.getJSON(Globals.path + '/MyAccount/AJAX?method=deleteList&' + selectedLists, function () {
-						location.reload();
-					});
-				}
+		deleteSelectedLists() {
+			const selectedLists = AspenDiscovery.getSelectedLists();
+			if (selectedLists && selectedLists.length > 0) {
+				const url = Globals.path + '/MyAccount/AJAX?method=getDeleteSelectedListsForm';
+				$.getJSON(url, function (data) {
+					const { title, modalBody, modalButtons } = data;
+					AspenDiscovery.showMessageWithButtons(title, modalBody, modalButtons, false, '', false, false, true);
+				});
+			} else {
+				AspenDiscovery.showMessage('No Lists Selected', 'Please select one or more lists to delete.');
 			}
 			return false;
+		},
+		doDeleteSelectedLists() {
+			$('#confirmDeleteSelectedLists .fa-spinner').show();
+			$('#confirmDeleteSelectedLists').prop('disabled', true);
+			const hardDelete = $('#optOutSoftDeletionBulk').is(':checked');
+			const selectedLists = AspenDiscovery.getSelectedLists();
+
+			if (selectedLists) {
+				const optOutParam = hardDelete ? '&optOutSoftDeletion=true' : '';
+				$.getJSON(Globals.path + '/MyAccount/AJAX?method=deleteList&' + selectedLists + optOutParam, function (data) {
+					if (data.success) {
+						AspenDiscovery.showMessage('Successfully Deleted Selected Lists', data.message, true, true);
+					} else {
+						AspenDiscovery.showMessageWithButtons('Failed to Delete Selected Lists', data.message, '', false);
+					}
+				});
+			}
 		},
 		getEditListForm: function (listEntryId, listId) {
 			var url = Globals.path + "/MyAccount/AJAX?method=getEditListForm&listEntryId=" + listEntryId + "&listId=" + listId;

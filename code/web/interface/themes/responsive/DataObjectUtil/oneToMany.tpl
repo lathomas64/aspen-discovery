@@ -127,12 +127,9 @@
 								{/if}
 							{/if}
 						{/if}
-						{* link to delete*}
 						<input type="hidden" id="{$propName}Deleted_{$subObject->id}" name="{$propName}Deleted[{$subObject->id}]" value="false">
 						{if !empty($property.canDelete) && $subObject->canActiveUserDelete() && empty($property.readOnly)}
-							{* link to delete *}
-							<a href="#" class="btn btn-sm btn-warning" onclick="if (confirm('{translate text='Are you sure you want to delete this?' inAttribute=true isAdminFacing=true}')){literal}{{/literal}$('#{$propName}Deleted_{$subObject->id}').val('true');$('#{$propName}{$subObject->id}').hide().find('.required').removeClass('required'){literal}}{/literal};return false;">
-								{* On delete action, also remove class 'required' to turn off form validation of the deleted input; so that the form can be submitted by the user  *}
+							<a href="#" class="btn btn-sm btn-warning" onclick="AspenDiscovery.confirm('Delete Row', '{translate text='Are you sure you want to delete this row?' inAttribute=true isAdminFacing=true}', 'Delete', 'Cancel', true, 'deleteOneToManyRow_{$propName}({$subObject->id})', 'btn-danger'); return false;">
 								<i class="fas fa-trash"></i> {translate text="Delete" isAdminFacing=true}
 							</a>
 						{/if}
@@ -167,15 +164,19 @@
 		}
 		{literal}$(function () {{/literal}
 			{if !empty($property.sortable)}
-			{literal}$('#{/literal}{$propName}{literal} tbody').sortable({
-				update: function (event, ui) {
-					$.each($(this).sortable('toArray'), function (index, value) {
-						var inputId = '#{/literal}{$propName}Weight_' + value.substr({$propName|@strlen}); {literal}
-						$(inputId).val(index + 1);
-					});
-				}
-			});
-			{/literal}
+				{literal}
+				const propName = '{/literal}{$propName}{literal}';
+				const tbodySel = '#' + propName + ' tbody';
+				$(tbodySel).sortable({
+					update() {
+						$(this).sortable('toArray').forEach((value, index) => {
+							const suffix  = value.slice(propName.length);
+							const inputId = '#' + propName + 'Weight_' + suffix;
+							$(inputId).val(index + 1);
+						});
+					}
+				});
+				{/literal}
 			{/if}
 			document.querySelectorAll('.auto-grow-textarea').forEach(textarea => {
 				autoGrowTextarea(textarea);
@@ -191,9 +192,15 @@
 			{literal}});{/literal}
 		let numAdditional{$propName} = 0;
 
+		function deleteOneToManyRow_{$propName}(id) {
+			$('#{$propName}Deleted_' + id).val('true');
+			$('#{$propName}' + id).hide().find('.required').removeClass('required');
+			AspenDiscovery.closeLightbox();
+		}
+
 		function addNew{$propName}{literal}() {
 			numAdditional{/literal}{$propName}{literal} = numAdditional{/literal}{$propName}{literal} - 1;
-			var newRow = "<tr>";
+			let newRow = "<tr id='{/literal}{$propName}{literal}" + numAdditional{/literal}{$propName}{literal} + "'>";
 			{/literal}
 			newRow += "<input type='hidden' id='{$propName}Id_" + numAdditional{$propName} + "' name='{$propName}Id[" + numAdditional{$propName} + "]' value='" + numAdditional{$propName} + "'>";
 			{if !empty($property.sortable)}
@@ -258,10 +265,21 @@
 					{/if}
 				{/if}
 			{/foreach}
+			newRow += "<td>";
+			newRow += "<input type='hidden' id='{$propName}Deleted_" + numAdditional{$propName} + "' name='{$propName}Deleted[" + numAdditional{$propName} + "]' value='false'>";
+			{if !empty($property.canDelete) && empty($property.readOnly)}
+			newRow += "<a href='#' class='btn btn-sm btn-warning' onclick='$(\"#{$propName}" + numAdditional{$propName} + "\").remove(); return false;'>";
+			newRow += "<i class='fas fa-trash'></i> {translate text='Delete' isAdminFacing=true}";
+			newRow += "</a>";
+			{/if}
+			newRow += "</td>";
 			newRow += "</tr>";
 			{literal}
 			const $newRow = $(newRow);
 			$('#{/literal}{$propName}{literal} tbody').append($newRow);
+
+			// Scroll to the newly added row.
+			$newRow[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 
 			const $newTextarea = $newRow.find('.auto-grow-textarea');
 			if ($newTextarea.length) {

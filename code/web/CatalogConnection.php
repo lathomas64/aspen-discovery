@@ -356,27 +356,27 @@ class CatalogConnection {
 								$smsResponse = $twilioSetting->sendMessage($body, $phone);
 								if ($smsResponse['success']) {
 									$result['message'] = translate([
-										'text' => 'An message containing your library card was sent to %1%.',
+										'text' => 'A message containing your library card was sent to %1%.',
 										'isPublicFacing' => true,
 										1 => $phone
 									]);
 								} else {
 									$result['message'] = translate([
-										'text' => 'We could not send a message to %1%, please contact the library to retrieve your library card.',
+										'text' => 'We could not send a message to %1%. Please contact the library to retrieve your library card.',
 										'isPublicFacing' => true,
 										1 => $phone
 									]);
 								}
 							} else {
 								$result['message'] = translate([
-									'text' => 'We could not send a message to %1%, please contact the library to retrieve your library card.',
+									'text' => 'We could not send a message to %1%. Please contact the library to retrieve your library card.',
 									'isPublicFacing' => true,
 									1 => $phone
 								]);
 							}
 						} else {
 							$result['message'] = translate([
-								'text' => 'We could not send a message to %1%, please contact the library to retrieve your library card.',
+								'text' => 'We could not send a message to %1%. Please contact the library to retrieve your library card.',
 								'isPublicFacing' => true,
 								1 => $phone
 							]);
@@ -1680,6 +1680,10 @@ class CatalogConnection {
 	public function getWeedingReportData($location) {
 		return $this->driver->getWeedingReportData($location);
 	}
+	
+	public function getLibrarianFacebookData() {
+		return $this->driver->getLibrarianFacebookData();
+	}
 
 	/**
 	 * Loads any contact information that is not stored by Aspen Discovery from the ILS. Updates the user object.
@@ -1728,6 +1732,14 @@ class CatalogConnection {
 
 	public function getAllCurbsidePickups(): array {
 		return $this->driver->getAllCurbsidePickups();
+	}
+
+	public function restrictValidPickupLocationsForRecordByILS(): bool {
+		return $this->driver->restrictValidPickupLocationsForRecordByILS();
+	}
+
+	public function getValidPickupLocationsForRecordFromILS(string $recordId, User $user): array {
+		return $this->driver->getValidPickupLocationsForRecordFromILS($recordId, $user);
 	}
 
 	public function isPromptForHoldNotifications(): bool {
@@ -2001,5 +2013,9 @@ class CatalogConnection {
 
 	public function hasIlsConsentSupport(): bool {
 		return $this->driver->hasIlsConsentSupport();
+	}
+
+	public function isPatronAccountLocked(User $patron, $fine): bool {
+		return $this->driver->isPatronAccountLocked($patron, $fine);
 	}
 }

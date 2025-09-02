@@ -869,13 +869,17 @@ abstract class ObjectEditor extends Admin_Admin {
 			foreach ($_REQUEST['selectedObject'] as $id => $value) {
 				if ($index == 1) {
 					$object1 = $this->getExistingObjectById($id);
-					$object1EditUrl = "/{$this->getModule()}/{$this->getToolName()}?objectAction=edit&id=$id";
-					$interface->assign('object1EditUrl', $object1EditUrl);
+					if ($this->showEditButtonsInCompareAndHistoryViews()) {
+						$object1EditUrl = "/{$this->getModule()}/{$this->getToolName()}?objectAction=edit&id=$id";
+						$interface->assign('object1EditUrl', $object1EditUrl);
+					}
 					$index = 2;
 				} else {
 					$object2 = $this->getExistingObjectById($id);
-					$object2EditUrl = "/{$this->getModule()}/{$this->getToolName()}?objectAction=edit&id=$id";
-					$interface->assign('object2EditUrl', $object2EditUrl);
+					if ($this->showEditButtonsInCompareAndHistoryViews()) {
+						$object2EditUrl = "/{$this->getModule()}/{$this->getToolName()}?objectAction=edit&id=$id";
+						$interface->assign('object2EditUrl', $object2EditUrl);
+					}
 				}
 			}
 			if ($object1 == null || $object2 == null) {
@@ -890,6 +894,10 @@ abstract class ObjectEditor extends Admin_Admin {
 			$interface->assign('error', 'Please select two objects to compare');
 		}
 
+		$interface->assign('showEditButtonsInCompareAndHistoryViews', $this->showEditButtonsInCompareAndHistoryViews());
+		$interface->assign('showReturnToList', $this->getToolName() === 'ObjectRestorations');
+		$interface->assign('module', $this->getModule());
+		$interface->assign('toolName', $this->getToolName());
 		$interface->setTemplate('../Admin/compareObjects.tpl');
 	}
 
@@ -951,7 +959,7 @@ abstract class ObjectEditor extends Admin_Admin {
 	 * @param string|null $sectionName
 	 * @return array
 	 */
-	protected function compareObjectProperties($structure, ?DataObject $object1, ?DataObject $object2, array $properties, $sectionName): array {
+	protected function compareObjectProperties($structure, ?DataObject $object1, ?DataObject $object2, array $properties, ?string $sectionName): array {
 		foreach ($structure as $property) {
 			if ($property['type'] == 'section') {
 				$label = $property['label'];
@@ -961,7 +969,7 @@ abstract class ObjectEditor extends Admin_Admin {
 				$properties = $this->compareObjectProperties($property['properties'], $object1, $object2, $properties, $label);
 			} else {
 				$propertyName = $property['property'];
-				$uniqueProperty = isset($property['uniqueProperty']) ? $property['uniqueProperty'] : ($propertyName == $this->getPrimaryKeyColumn());
+				$uniqueProperty = $property['uniqueProperty'] ?? ($propertyName == $this->getPrimaryKeyColumn());
 				$propertyValue1 = $this->getPropertyValue($property, $object1->$propertyName, $property['type']);
 				$propertyValue2 = $this->getPropertyValue($property, $object2->$propertyName, $property['type']);
 				$label = $property['label'];
@@ -993,33 +1001,53 @@ abstract class ObjectEditor extends Admin_Admin {
 	function getPropertyValue($property, $propertyValue, $propertyType) {
 		if ($propertyType == 'oneToMany' || $propertyType == 'multiSelect') {
 			if ($propertyValue == null) {
-				return 'null';
-			} else {
-				return implode('<br/>', $propertyValue);
-			}
-		} elseif ($propertyType == 'enum') {
-			if (isset($property['values'][$propertyValue])) {
-				return $property['values'][$propertyValue];
-			} else {
 				return translate([
-					'text' => 'Undefined value %1%',
-					1 => $propertyValue,
+					'text' => 'None Selected',
 					'isAdminFacing' => true,
 				]);
+			} else {
+				if ($propertyType == 'multiSelect' && isset($property['values']) && is_array($propertyValue)) {
+					$displayValues = [];
+					foreach ($propertyValue as $id) {
+						if (isset($property['values'][$id])) {
+							$displayValues[] = $property['values'][$id];
+						} else {
+							$displayValues[] = $id;
+						}
+					}
+					return implode('<br/>', $displayValues);
+				} else {
+					return implode('<br/>', $propertyValue);
+				}
 			}
+		} elseif ($propertyType == 'enum') {
+			return $property['values'][$propertyValue] ?? translate([
+				'text' => 'Undefined Value %1%',
+				1 => $propertyValue,
+				'isAdminFacing' => true,
+			]);
+		} elseif ($propertyType == 'html') {
+			if ($propertyValue === null || $propertyValue === '') {
+				return '';
+			}
+			// Strip all HTML tags and collapse whitespace.
+			$plain = strip_tags($propertyValue);
+			return trim(preg_replace('/\s+/u', ' ', $plain));
 		} else {
 			return is_array($propertyValue) ? implode(', ', $propertyValue) : (is_object($propertyValue) ? (string)$propertyValue : $propertyValue);
 		}
 	}
 
-	function showHistory() {
-		$id = isset($_REQUEST['id']) ? $_REQUEST['id'] : '';
+	function showHistory(): void {
+		$id = $_REQUEST['id'] ?? '';
 		if (empty($id) || $id < 0) {
-			AspenError::raiseError('Please select an object to show history for');
+			AspenError::raiseError('Please select an object to display its history.');
 		} else {
-			//Work with an existing record
 			global $interface;
 			$curObject = $this->getExistingObjectById($id);
+			if (!$curObject) {
+				AspenError::raiseError('The object with ID ' . $id . ' does not exist.');
+			}
 			$interface->assign('curObject', $curObject);
 			$interface->assign('id', $id);
 			$displayNameColumn = $curObject->__displayNameColumn;
@@ -1049,6 +1077,9 @@ abstract class ObjectEditor extends Admin_Admin {
 				$objectHistory[] = clone $historyEntry;
 			}
 			$interface->assign('objectHistory', $objectHistory);
+			$interface->assign('showEditButtonsInCompareAndHistoryViews', $this->showEditButtonsInCompareAndHistoryViews());
+			$interface->assign('module', $this->getModule());
+			$interface->assign('toolName', $this->getToolName());
 			$this->display('../Admin/objectHistory.tpl', $title);
 			exit();
 		}
@@ -1373,6 +1404,15 @@ abstract class ObjectEditor extends Admin_Admin {
 	}
 
 	protected function showHistoryLinks() {
+		return true;
+	}
+
+	/**
+	 * Control whether edit buttons should be shown in history and compare views.
+	 * Purpose: Override it to hide edit functionality when appropriate.
+	 * @return bool True if edit buttons are enabled, false otherwise.
+	 */
+	protected function showEditButtonsInCompareAndHistoryViews(): bool {
 		return true;
 	}
 

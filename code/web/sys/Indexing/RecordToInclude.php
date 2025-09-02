@@ -1,6 +1,5 @@
-<?php
+<?php /** @noinspection PhpMissingFieldTypeInspection */
 
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
 
 class RecordToInclude extends DataObject {
 	public $id;
@@ -55,16 +54,16 @@ class RecordToInclude extends DataObject {
 
 	public $weight;
 
-	static function getObjectStructure($context = ''): array {
-		$indexingProfiles = [];
-		require_once ROOT_DIR . '/sys/Indexing/IndexingProfile.php';
-		$indexingProfile = new IndexingProfile();
-		$indexingProfile->orderBy('name');
-		$indexingProfile->find();
-		while ($indexingProfile->fetch()) {
-			$indexingProfiles[$indexingProfile->id] = $indexingProfile->name;
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
 		}
-		return [
+
+		require_once ROOT_DIR . '/sys/Indexing/IndexingProfile.php';
+		$indexingProfiles = IndexingProfile::getAllIndexingProfilesById();
+
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -221,24 +220,24 @@ class RecordToInclude extends DataObject {
 			'includeHoldableOnly' => [
 				'property' => 'includeHoldableOnly',
 				'type' => 'checkbox',
-				'label' => 'Include Holdable Only',
-				'description' => 'Whether or not non-holdable records are included',
-				'default' => false,
+				'label' => 'Include Holdable Items Only',
+				'description' => 'Whether or not non-holdable records are included.',
+				'default' => 0,
 				'forcesReindex' => true,
 			],
 			'includeItemsOnOrder' => [
 				'property' => 'includeItemsOnOrder',
 				'type' => 'checkbox',
-				'label' => 'Include Items On Order',
-				'description' => 'Whether or not order records are included',
+				'label' => 'Include On-Order Items',
+				'description' => 'Whether or not on-order records are included.',
 				'default' => 1,
 				'forcesReindex' => true,
 			],
 			'includeEContent' => [
 				'property' => 'includeEContent',
 				'type' => 'checkbox',
-				'label' => 'Include e-content Items',
-				'description' => 'Whether or not e-Content should be included',
+				'label' => 'Include E-Content Items',
+				'description' => 'Whether or not e-content should be included.',
 				'default' => 1,
 				'forcesReindex' => true,
 			],
@@ -291,5 +290,8 @@ class RecordToInclude extends DataObject {
 				'forcesReindex' => true,
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 }

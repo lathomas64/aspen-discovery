@@ -1,7 +1,6 @@
 <?php
 /** @noinspection PhpMissingFieldTypeInspection */
 
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
 require_once ROOT_DIR . '/sys/Browse/BaseBrowsable.php';
 
 class CollectionSpotlightList extends BaseBrowsable {
@@ -12,7 +11,12 @@ class CollectionSpotlightList extends BaseBrowsable {
 	public $displayFor;
 	public $weight;
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
 		require_once ROOT_DIR . '/sys/UserLists/UserList.php';
 		$sourceLists = UserList::getSourceListsForBrowsingAndCarousels();
 
@@ -30,7 +34,7 @@ class CollectionSpotlightList extends BaseBrowsable {
 
 		$spotlightSources = BaseBrowsable::getBrowseSources();
 
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -123,9 +127,16 @@ class CollectionSpotlightList extends BaseBrowsable {
 					'relevance' => 'Best Match',
 					'popularity' => 'Popularity',
 					'newest_to_oldest' => 'Date Added',
+					'oldest_to_newest' => 'Date Added (Oldest First)',
+					'newest_updated_to_oldest' => 'Date Updated',
+					'oldest_updated_to_newest' => 'Date Updated (Oldest First)',
 					'author' => 'Author',
 					'title' => 'Title',
 					'user_rating' => 'Rating',
+					'event_date' => 'Event Date',
+					'holds' => 'Number of Holds',
+					'publication_year_desc' => 'Publication Year Desc',
+					'publication_year_asc' => 'Publication Year Asc',
 				],
 				'description' => 'The default sort for the search if none is specified.',
 				'default' => 'relevance',
@@ -135,9 +146,12 @@ class CollectionSpotlightList extends BaseBrowsable {
 				'isAdminFacing' => true,
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	public function insert($context = ''): bool|int {
+	public function insert(string $context = ''): bool|int {
 		if ($this->source === null) {
 			$this->source = '';
 		}
@@ -153,7 +167,7 @@ class CollectionSpotlightList extends BaseBrowsable {
 			if ($userList->find(true)) {
 				return $userList->title;
 			} else {
-				return "Invalid List ({$this->sourceListId})";
+				return "Invalid List ($this->sourceListId)";
 			}
 
 		} elseif ($this->sourceCourseReserveId != null && $this->sourceCourseReserveId > 0) {
@@ -163,7 +177,7 @@ class CollectionSpotlightList extends BaseBrowsable {
 			if ($userList->find(true)) {
 				return $userList->getTitle();
 			} else {
-				return "Invalid Course Reserve ({$this->sourceCourseReserveId})";
+				return "Invalid Course Reserve ($this->sourceCourseReserveId)";
 			}
 
 		} else {
@@ -193,7 +207,7 @@ class CollectionSpotlightList extends BaseBrowsable {
 	}
 
 	function __toString() {
-		return "{$this->name} ($this->source)";
+		return "$this->name ($this->source)";
 	}
 
 	/**

@@ -15,13 +15,18 @@ class WebResourcesSetting extends DataObject
 	private $_resourceAudiences;
 	private $_resourceCategories;
 
-	public static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
 		$libraryList = Library::getLibraryList(!UserAccount::userHasPermission('Administer All Web Resources'));
 		$audiencesList = WebBuilderAudience::getAudiences();
 		$categoriesList = WebBuilderCategory::getCategories();
 		$customWebResourcesList = CustomWebResourcePage::getCustomPages();
 
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -115,10 +120,12 @@ class WebResourcesSetting extends DataObject
 				'hideInLists' => true,
 			]
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	public function insert($context = '') {
-		$this->lastUpdate = time();
+	public function insert(string $context = '') : int|bool {
 		$ret = parent::insert();
 		if ($ret !== FALSE) {
 			$this->saveLibraries();
@@ -130,8 +137,7 @@ class WebResourcesSetting extends DataObject
 		}
 		return $ret;
 	}
-	public function update($context = '') {
-		$this->lastUpdate = time();
+	public function update(string $context = '') : int|bool {
 		$ret = parent::update();
 		if ($ret !== FALSE) {
 			$this->saveLibraries();
@@ -181,9 +187,9 @@ class WebResourcesSetting extends DataObject
 		}
 	}
 
-	public function delete($useWhere = false): int {
-		$ret = parent::delete($useWhere);
-		if ($ret && !empty($this->id)) {
+	public function delete(bool $useWhere = false, bool $hardDelete = false) : bool|int {
+		$ret = parent::delete($useWhere, $hardDelete);
+		if ($ret && $hardDelete && !empty($this->id)) {
 			$this->clearLibraries();
 		}
 		return $ret;
@@ -203,8 +209,7 @@ class WebResourcesSetting extends DataObject
 	}
 
 
-	public function getCustomWebResourcesToIndex()
-	{
+	public function getCustomWebResourcesToIndex() : ?array {
 		if (!isset($this->_customWebResourcesList) && $this->id) {
 			$this->_customWebResourcesList = [];
 			$webResourcesToIndex = new WebResourcesToIndex();
@@ -217,8 +222,7 @@ class WebResourcesSetting extends DataObject
 		return $this->_customWebResourcesList;
 	}
 
-	public function getWebResourceAudiencesToIndex()
-	{
+	public function getWebResourceAudiencesToIndex(): ?array {
 		if (!isset($this->_resourceAudiences) && $this->id) {
 			$this->_resourceAudiences = [];
 			$resourceAudiencesToIndex = new WebResourcesToIndex();
@@ -232,8 +236,7 @@ class WebResourcesSetting extends DataObject
 		return $this->_resourceAudiences;
 	}
 
-	public function getWebResourceCategoriesToIndex()
-	{
+	public function getWebResourceCategoriesToIndex(): ?array {
 		if (!isset($this->_resourceCategories) && $this->id) {
 			$this->_resourceCategories = [];
 			$resourceCategoriesToIndex = new WebResourcesToIndex();
@@ -284,6 +287,7 @@ class WebResourcesSetting extends DataObject
 			foreach ($this->_customWebResourcesList as $customWebResourcePageId) {
 				$customWebResourcePage = new CustomWebResourcePage();
 				$customWebResourcePage->id = $customWebResourcePageId;
+				$customWebResourcePage->deleted = 0;
 				$customWebResourcePage->find();
 				while ($customWebResourcePage->fetch()) {
 					$customResourcesToIndex = new WebResourcesToIndex();

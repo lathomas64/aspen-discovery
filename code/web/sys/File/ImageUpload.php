@@ -1,4 +1,5 @@
 <?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 
 class ImageUpload extends DataObject {
@@ -18,6 +19,9 @@ class ImageUpload extends DataObject {
 	public $owningLibrary;
 	public $sharing;
 	public $sharedWithLibrary;
+	public $deleted;
+	public $dateDeleted;
+	public $deletedBy;
 
 	static $xLargeSize = 1100;
 	static $largeSize = 600;
@@ -28,7 +32,11 @@ class ImageUpload extends DataObject {
 		return ['id'];
 	}
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
 		global $serverName;
 		$allSharingOptions = [
 			0 => 'Not Shared',
@@ -52,7 +60,7 @@ class ImageUpload extends DataObject {
 
 		$libraryListForSharing = $libraryListForSharing + $libraryList;
 
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -194,9 +202,12 @@ class ImageUpload extends DataObject {
 				'validTypes' => ['image/gif', 'image/jpeg', 'image/png', 'image/svg+xml']
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 
-	function getDisplayUrl($property) {
+	function getDisplayUrl($property) : string {
 		if (empty($this->id)) {
 			return '';
 		}
@@ -214,17 +225,17 @@ class ImageUpload extends DataObject {
 		return '/WebBuilder/ViewImage?size=' . $size . '&id=' . $this->id;
 	}
 
-	function insert($context = '') {
+	public function insert(string $context = '') : int|bool {
 		$this->generateDerivatives();
 		return parent::insert();
 	}
 
-	function update($context = '') {
+	public function update(string $context = '') : int|bool {
 		$this->generateDerivatives();
 		return parent::update();
 	}
 
-	private function generateDerivatives() {
+	private function generateDerivatives() : void {
 		if (!empty($this->fullSizePath) && !empty($this->id)) {
 			global $serverName;
 			require_once ROOT_DIR . '/sys/Covers/CoverImageUtils.php';
@@ -349,5 +360,65 @@ class ImageUpload extends DataObject {
 
 	public function okToExport(array $selectedFilters): bool {
 		return true;
+	}
+
+	public function delete(bool $useWhere = false, bool $hardDelete = false) : bool|int {
+		global $serverName;
+		if ($hardDelete) {
+			$baseDir = '/data/aspen-discovery/' . $serverName . '/uploads/web_builder_image';
+			$variants = [
+				'full' => $this->fullSizePath,
+				'x-large' => $this->xLargeSizePath,
+				'large' => $this->largeSizePath,
+				'medium' => $this->mediumSizePath,
+				'small' => $this->smallSizePath,
+			];
+			foreach ($variants as $size => $filename) {
+				if (!empty($filename)) {
+					$path = $baseDir . '/' . $size . '/' . $filename;
+					if (file_exists($path)) {
+						@unlink($path);
+					}
+				}
+			}
+		}
+		return parent::delete($useWhere, $hardDelete);
+	}
+
+	public function supportsSoftDelete(): bool {
+		return true;
+	}
+
+	/**
+	 * Purge expired soft-deleted images: delete disk files then DB rows.
+	 *
+	 * @param int $olderThanSecs
+	 * @return int
+	 */
+	public static function purgeExpired(int $olderThanSecs = 2592000): int {
+		$cutOff = time() - $olderThanSecs;
+		$expiredIds = [];
+		$fetchObj = new static();
+		$fetchObj->deleted = 1;
+		// dateDeleted > 0 = Leave images older than the Object Restorations implementation alone for now.
+		$fetchObj->whereAdd("dateDeleted > 0 AND dateDeleted < $cutOff");
+		$fetchObj->find();
+		while ($fetchObj->fetch()) {
+			// Remove each size variant from disk.
+			foreach ([$fetchObj->fullSizePath, $fetchObj->xLargeSizePath, $fetchObj->largeSizePath,
+						 $fetchObj->mediumSizePath, $fetchObj->smallSizePath] as $path) {
+				if (!empty($path) && file_exists($path)) {
+					@unlink($path);
+				}
+			}
+			$expiredIds[] = $fetchObj->id;
+		}
+		if (empty($expiredIds)) {
+			return 0;
+		}
+
+		$deleteObj = new static();
+		$deleteObj->whereAddIn($deleteObj->getPrimaryKey(), $expiredIds, false);
+		return $deleteObj->delete(true);
 	}
 }

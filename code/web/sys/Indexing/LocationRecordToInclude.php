@@ -1,12 +1,19 @@
 <?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 require_once ROOT_DIR . '/sys/Indexing/RecordToInclude.php';
 
 class LocationRecordToInclude extends RecordToInclude {
-	public $__table = 'location_records_to_include';    // table name
+	public $__table = 'location_records_to_include';
+	public $__displayNameColumn = 'location';
 	public $locationId;
 
-	static function getObjectStructure($context = ''): array {
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
 		$location = new Location();
 		$location->selectAdd();
 		$location->selectAdd('locationId');
@@ -31,6 +38,7 @@ class LocationRecordToInclude extends RecordToInclude {
 			'description' => 'The id of a location',
 		];
 
-		return $structure;
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 }

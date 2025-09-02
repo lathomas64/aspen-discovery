@@ -1,7 +1,10 @@
 <?php
+/** @noinspection PhpMissingFieldTypeInspection */
 
 class LocationTheme extends DataObject {
 	public $__table = 'location_themes';
+	public $__displayNameColumn = 'themeName';
+	public $_themeName;
 	public $id;
 	public $locationId;
 	public $themeId;
@@ -15,8 +18,13 @@ class LocationTheme extends DataObject {
 		];
 	}
 
-	static function getObjectStructure($context = ''): array {
-		//Load Libraries for lookup values
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+
+			//Load Libraries for lookup values
 		$locationList = Location::getLocationList(!UserAccount::userHasPermission('Administer All Locations'));
 		$allLocationList = Location::getLocationList(false);
 
@@ -29,7 +37,7 @@ class LocationTheme extends DataObject {
 			$availableThemes[$theme->id] = $theme->themeName;
 		}
 
-		return [
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -53,6 +61,26 @@ class LocationTheme extends DataObject {
 				'permissions' => ['Library Theme Configuration'],
 			],
 		];
+
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
+	}
+
+	public function __get($name) {
+		if ($name == 'themeName') {
+			if ($this->_themeName == null) {
+				require_once ROOT_DIR . '/sys/Theming/Theme.php';
+				$theme = new Theme();
+				$theme->id = $this->themeId;
+				if ($theme->find(true)) {
+					$this->_themeName = $theme->themeName;
+				} else {
+					$this->_themeName = '';
+				}
+			}
+			return $this->_themeName;
+		}
+		return parent::__get($name);
 	}
 
 	public function canActiveUserEdit() : bool {
@@ -64,7 +92,7 @@ class LocationTheme extends DataObject {
 		}
 	}
 
-	function getEditLink($context): string {
+	public function getEditLink(string $context): string {
 		if ($context == 'locations') {
 			return '/Admin/Locations?objectAction=edit&id=' . $this->locationId;
 		} else {

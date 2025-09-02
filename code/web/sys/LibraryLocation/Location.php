@@ -1,8 +1,8 @@
-<?php /** @noinspection PhpMissingFieldTypeInspection */
+<?php
+/** @noinspection PhpMissingFieldTypeInspection */
 /** @noinspection RequiredAttributes */
 /** @noinspection HtmlRequiredAltAttribute */
 
-require_once ROOT_DIR . '/sys/DB/DataObject.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/LocationHours.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/LocationCombinedResultSection.php';
 require_once ROOT_DIR . '/sys/LibraryLocation/LocationTheme.php';
@@ -30,8 +30,10 @@ require_once ROOT_DIR . '/sys/Events/EventsBranchMapping.php';
 
 
 class Location extends DataObject {
-	const DEFAULT_AUTOLOGOUT_TIME = 90;
-	const DEFAULT_AUTOLOGOUT_TIME_LOGGED_OUT = 450;
+	/** @noinspection PhpMissingClassConstantTypeInspection */
+	public const DEFAULT_AUTOLOGOUT_TIME = 90;
+	/** @noinspection PhpMissingClassConstantTypeInspection */
+	public const DEFAULT_AUTOLOGOUT_TIME_LOGGED_OUT = 450;
 
 	public $__table = 'location';   // table name
 	public $__primaryKey = 'locationId';
@@ -126,6 +128,8 @@ class Location extends DataObject {
 
 	/** @noinspection PhpUnused */
 	public $allowUpdatingHoursFromILS;
+	/** @noinspection PhpUnused */
+	public $allowUpdatingContactInfoFromILS;
 
 	protected $_hours;
 	private $_moreDetailsOptions;
@@ -184,7 +188,7 @@ class Location extends DataObject {
 	}
 
 	static $_objectStructure = [];
-	static function getObjectStructure($context = ''): array {
+	static function getObjectStructure(string $context = ''): array {
 		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
 			return self::$_objectStructure[$context];
 		}
@@ -354,6 +358,7 @@ class Location extends DataObject {
 				'forcesReindex' => true,
 				'canBatchUpdate' => false,
 				'editPermissions' => ['Location Domain Settings'],
+				'maxLength' => 100,
 			],
 			'locationImage' => [
 				'property' => 'locationImage',
@@ -447,6 +452,15 @@ class Location extends DataObject {
 				'default' => true,
 				'editPermissions' => ['Location Address and Hours Settings'],
 				'affectsLiDA' => true,
+			],
+			'allowUpdatingContactInfoFromILS' => [
+				'property' => 'allowUpdatingContactInfoFromILS',
+				'type' => 'checkbox',
+				'label' => 'Automatically Update Contact Information from the ILS',
+				'description' => 'Whether address, phone number, and email should be automatically updated from the ILS.',
+				'hideInLists' => true,
+				'default' => 0,
+				'permissions' => ['Location ILS Connection'],
 			],
 			'address' => [
 				'property' => 'address',
@@ -740,8 +754,8 @@ class Location extends DataObject {
 					'allowUpdatingHoursFromILS' => [
 						'property' => 'allowUpdatingHoursFromILS',
 						'type' => 'checkbox',
-						'label' => 'Automatically Update with Closures from the ILS',
-						'description' => 'Whether closures should be automatically updated from the ILS.',
+						'label' => 'Automatically Update with Library Hours and Closures from the ILS',
+						'description' => 'Whether library hours and closures should be automatically updated from the ILS.',
 						'hideInLists' => true,
 						'default' => 1,
 						'permissions' => ['Location ILS Connection'],
@@ -1518,6 +1532,7 @@ class Location extends DataObject {
 		}
 
 		//Set up our query to get the correct locations from the location table.
+		/** @noinspection PhpIfWithCommonPartsInspection */
 		if (isset($homeLibrary) && $homeLibrary->inSystemPickupsOnly == 1) {
 			/** The user can only pick up within their home system */
 			if (strlen($homeLibrary->validPickupSystems) > 0) {
@@ -1535,17 +1550,22 @@ class Location extends DataObject {
 					}
 				}
 				$this->whereAdd("libraryId IN (" . implode(',', $pickupIds) . ")");
-				//TODO: Do we need to limit based on validHoldPickupBranch
 			} else {
 				/** Only this system is valid */
 				$this->whereAdd("libraryId = $homeLibrary->libraryId");
-				$this->whereAdd("validHoldPickupBranch = 1 OR validHoldPickupBranch = 3");
+			}
+			$this->whereAdd("validHoldPickupBranch = 1 OR validHoldPickupBranch = 3");
+			if ($patronProfile && $patronProfile->homeLocationId > 0) {
+				$this->whereAdd("(validHoldPickupBranch = 0 AND locationId = " . $patronProfile->homeLocationId . ")", 'OR');
 			}
 		} else {
-			//The user can pick up at any system
+			// The user can pick up at any system.
 			$this->whereAdd("validHoldPickupBranch = 1");
 			if ($homeLibrary !== null) {
 				$this->whereAdd("validHoldPickupBranch = 3 AND libraryId = $homeLibrary->libraryId", 'OR');
+			}
+			if ($patronProfile && $patronProfile->homeLocationId > 0) {
+				$this->whereAdd("(validHoldPickupBranch = 0 AND locationId = " . $patronProfile->homeLocationId . ")", 'OR');
 			}
 		}
 
@@ -1554,7 +1574,7 @@ class Location extends DataObject {
 		/** @var Location[] $tmpLocations */
 		$tmpLocations = $this->fetchAll();
 
-		//Load the locations and sort them based on the user profile information as well as their physical location.
+		// Load the locations and sort them based on the user profile information as well as their physical location.
 		$physicalLocation = $this->getPhysicalLocation();
 		$locationList = [];
 		foreach ($tmpLocations as $tmpLocation) {
@@ -1563,65 +1583,34 @@ class Location extends DataObject {
 				$tmpLocation->addPickupUser($patronProfile->id);
 			}
 			if (($tmpLocation->validHoldPickupBranch == 1) || ($tmpLocation->validHoldPickupBranch == 0 && !empty($patronProfile) && $patronProfile->homeLocationId == $tmpLocation->locationId) || ($tmpLocation->validHoldPickupBranch == 3 && !empty($patronProfile) && $patronProfile->getHomeLibrary()->libraryId == $tmpLocation->libraryId)) {
-				// Each location is prepended with a number to keep precedence for given locations when sorted below
+				// Each location is prepended with a number to keep precedence for given locations when sorted below.
 				if (isset($physicalLocation) && $physicalLocation->locationId == $tmpLocation->locationId) {
-					//If the user is in a branch, those holdings come first.
+					// 1. User's current physical location (if in a branch).
 					$locationList['1' . $tmpLocation->displayName] = $tmpLocation;
 				} elseif (!empty($patronProfile) && $tmpLocation->locationId == $patronProfile->pickupLocationId) {
-					//Next comes the user's preferred pickup branch if the user is logged in.
-					$locationList['21' . $tmpLocation->displayName] = $tmpLocation;
-				} elseif (!empty($patronProfile) && $tmpLocation->locationId == $patronProfile->homeLocationId) {
-					//Next comes the user's home branch if the user is logged in or has the home_branch cookie set.
-					$locationList['22' . $tmpLocation->displayName] = $tmpLocation;
-					$homeLibraryInList = true;
+					// 2. Preferred pickup location (if user is logged in).
+					$locationList['2' . $tmpLocation->displayName] = $tmpLocation;
 				} elseif (isset($patronProfile->myLocation1Id) && $tmpLocation->locationId == $patronProfile->myLocation1Id) {
-					//Next come nearby locations for the user
+					// 3. Alternate pickup location 1 (if configured for the user).
 					$locationList['3' . $tmpLocation->displayName] = $tmpLocation;
 					$alternateLibraryInList = true;
 				} elseif (isset($patronProfile->myLocation2Id) && $tmpLocation->locationId == $patronProfile->myLocation2Id) {
-					//Next come nearby locations for the user
+					// 4. Alternate pickup location 2 (if configured for the user).
 					$locationList['4' . $tmpLocation->displayName] = $tmpLocation;
-				} elseif (isset($homeLibrary) && $tmpLocation->libraryId == $homeLibrary->libraryId) {
-					//Other locations that are within the same library system
+				} elseif (!empty($patronProfile) && $tmpLocation->locationId == $patronProfile->homeLocationId) {
+					// 5. Home library (if user is logged in).
 					$locationList['5' . $tmpLocation->displayName] = $tmpLocation;
-				} else {
-					//Finally, all other locations are shown sorted alphabetically.
+					$homeLibraryInList = true;
+				} elseif (isset($homeLibrary) && $tmpLocation->libraryId == $homeLibrary->libraryId) {
+					// 6. Other locations within the same library system.
 					$locationList['6' . $tmpLocation->displayName] = $tmpLocation;
+				} else {
+					// 7. All other locations, sorted alphabetically.
+					$locationList['7' . $tmpLocation->displayName] = $tmpLocation;
 				}
 			}
 		}
 		ksort($locationList);
-
-		//MDN 8/14/2015 always add the home location #PK-81
-		// unless the option to pickup at the home location is specifically disabled #PK-1250
-		//if (count($locationList) == 0 && (isset($homeLibrary) && $homeLibrary->inSystemPickupsOnly == 1)){
-		if (!empty($patronProfile) && $patronProfile->homeLocationId != 0) {
-			$homeLocation = new Location();
-			$homeLocation->locationId = $patronProfile->homeLocationId;
-			if ($homeLocation->find(true)) {
-				if ($homeLocation->validHoldPickupBranch != 2) {
-					//We didn't find any locations.  This for schools where we want holds available, but don't want the branch to be a
-					//pickup location anywhere else.
-					$homeLocation->addPickupUser($patronProfile->id); // Add the user id to each pickup location to track multiple linked accounts having the same pick-up location.
-					$existingLocation = false;
-					foreach ($locationList as $location) {
-						if ($location->libraryId == $homeLocation->libraryId && $location->locationId == $homeLocation->locationId) {
-							$existingLocation = true;
-							//TODO: update sorting key as well?
-							break;
-						}
-					}
-					if (!$existingLocation) {
-						if (!$isLinkedUser) {
-							$locationList['1' . $homeLocation->displayName] = clone $homeLocation;
-							$homeLibraryInList = true;
-						} else {
-							$locationList['23' . $homeLocation->displayName] = clone $homeLocation;
-						}
-					}
-				}
-			}
-		}
 
 		if (!$homeLibraryInList && !$alternateLibraryInList && !$isLinkedUser) {
 			$locationList['0default'] = "Please Select a Location";
@@ -1675,7 +1664,7 @@ class Location extends DataObject {
 	 * @param ?int $locationId The location to get sublocations for - don't limit by location if null
 	 * @return Sublocation[]
 	 */
-	static function getEventSublocations($locationId): array {
+	static function getEventSublocations(?int $locationId): array {
 		require_once ROOT_DIR . '/sys/LibraryLocation/Sublocation.php';
 		$sublocations = [];
 		$object = new Sublocation();
@@ -1802,19 +1791,12 @@ class Location extends DataObject {
 				} else {
 					//get the main location for the library or if there isn't one, get the first
 					global $library;
-					$location = new Location();
-					$location->libraryId = $library->libraryId;
-					$location->orderBy('isMainBranch desc'); // gets the main branch first or the first location
-					if ($location->find(true)) {
-						Location::$_defaultLocationForUser = $location;
+					//Locations for the library are sorted by main branch first and then name, we just need the first one
+					$locationsForLibrary = $library->getLocations();
+					if (count($locationsForLibrary) > 0) {
+						Location::$_defaultLocationForUser = reset($locationsForLibrary);
 					} else {
-						//Get the first location
-						$location = new Location();
-						if ($location->find(true)) {
-							Location::$_defaultLocationForUser = $location;
-						} else {
-							//There isn't anything to tie it to, leave it null
-						}
+						//There isn't anything to tie it to, leave it null
 					}
 				}
 			}
@@ -1954,7 +1936,7 @@ class Location extends DataObject {
 		require_once ROOT_DIR . '/sys/IP/IPAddress.php';
 		self::$_ipLocation = null;
 		$subnet = IPAddress::getIPAddressForIP($activeIp);
-		if ($subnet !== false) {
+		if ($subnet !== false && $subnet->locationid > 0) {
 			$matchedLocation = new Location();
 			$matchedLocation->locationId = $subnet->locationid;
 			if ($matchedLocation->find(true)) {
@@ -1984,25 +1966,33 @@ class Location extends DataObject {
 		return $this->sublocationCode;
 	}
 
+	private $_locationFacets = null;
 	/**
 	 * @param $libraryId
 	 * @return string[]
 	 */
 	function getLocationsFacetsForLibrary($libraryId): array {
-		$location = new Location();
-		$location->libraryId = $libraryId;
-		$location->find();
-		$facets = [];
-		if ($location->getNumResults() > 0) {
-			while ($location->fetch()) {
-				if (empty($location->facetLabel)) {
-					$facets[] = $location->displayName;
-				} else {
-					$facets[] = $location->facetLabel;
+		if ($this->_locationFacets == null) {
+			$location = new Location();
+			$location->selectAdd();
+			$location->selectAdd('displayName');
+			$location->selectAdd('facetLabel');
+			$location->libraryId = $libraryId;
+			$location->find();
+			$facets = [];
+			if ($location->getNumResults() > 0) {
+				while ($location->fetch()) {
+					if (empty($location->facetLabel)) {
+						$facets[] = $location->displayName;
+					} else {
+						$facets[] = $location->facetLabel;
+					}
 				}
 			}
+			$this->_locationFacets = $facets;
 		}
-		return $facets;
+
+		return $this->_locationFacets;
 	}
 
 
@@ -2059,7 +2049,7 @@ class Location extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::update()
 	 */
-	public function update($context = '') {
+	public function update(string $context = '') : int|bool {
 		$ret = parent::update();
 		if ($ret !== FALSE) {
 			$this->saveHours();
@@ -2082,7 +2072,7 @@ class Location extends DataObject {
 	 *
 	 * @see DB/DB_DataObject::insert()
 	 */
-	public function insert($context = '') {
+	public function insert(string $context = '') : int|bool {
 		$ret = parent::insert();
 		if ($ret !== FALSE) {
 			$this->saveHours();
@@ -2100,8 +2090,8 @@ class Location extends DataObject {
 		return $ret;
 	}
 
-	public function delete($useWhere = false): int {
-		$ret = parent::delete($useWhere);
+	public function delete(bool $useWhere = false, bool $hardDelete = false) : bool|int {
+		$ret = parent::delete($useWhere, $hardDelete);
 		if ($ret && !empty($this->id)) {
 			$locationMap = new EventsBranchMapping();
 			$locationMap->locationId = $this->locationId;
@@ -2167,8 +2157,8 @@ class Location extends DataObject {
 		}
 	}
 
-	public function getCloudLibraryScope(): null|string|int {
-		if ($this->_cloudLibraryScope == null && $this->locationId) {
+	public function getCloudLibraryScope(): int {
+		if ($this->_cloudLibraryScope === null && $this->locationId) {
 			require_once ROOT_DIR . '/sys/CloudLibrary/LocationCloudLibraryScope.php';
 			$locationCloudLibraryScope = new LocationCloudLibraryScope();
 			$locationCloudLibraryScope->locationId = $this->locationId;
@@ -2179,6 +2169,10 @@ class Location extends DataObject {
 				if ($cloudLibraryScope->find(true)) {
 					$this->_cloudLibraryScope = $cloudLibraryScope->id;
 				}
+			}
+			// If still not set, default to '-1', which corresponds to 'none'.
+			if ($this->_cloudLibraryScope === null) {
+				$this->_cloudLibraryScope = -1;
 			}
 		}
 		return $this->_cloudLibraryScope;
@@ -2237,7 +2231,7 @@ class Location extends DataObject {
 			}
 
 			// get the day of the week (0=Sunday to 6=Saturday)
-			$dayOfWeekToday = strftime('%w', $timeToCheck);
+			$dayOfWeekToday = date('w', $timeToCheck);
 
 			// find library hours for the above day of the week
 			$hours = new LocationHours();
@@ -2298,8 +2292,8 @@ class Location extends DataObject {
 						$daysChecked++;
 					}
 
-					$nextDayOfWeek = strftime('%a', $nextDay);
-					if (isset($nextDayHours['closed']) && $nextDayHours['closed'] == true) {
+					$nextDayOfWeek = date('a', $nextDay);
+					if (isset($nextDayHours['closed']) && $nextDayHours['closed']) {
 						if (isset($closureReason)) {
 							if ($simpleOutput) {
 								$libraryHoursMessage = translate([
@@ -2359,9 +2353,9 @@ class Location extends DataObject {
 					}
 				} else {
 					//Library is open
-					$currentHour = strftime('%H', $today);
-					$openHour = strftime('%H', strtotime($todaysLibraryHours[0]['open']));
-					$closeHour = strftime('%H', strtotime($todaysLibraryHours[sizeof($todaysLibraryHours) - 1]['close']));
+					$currentHour = date('H', $today);
+					$openHour = date('H', strtotime($todaysLibraryHours[0]['open']));
+					$closeHour = date('H', strtotime($todaysLibraryHours[sizeof($todaysLibraryHours) - 1]['close']));
 					if ($closeHour == 0 && $closeHour < $openHour) {
 						$closeHour = 24;
 					}
@@ -2490,7 +2484,7 @@ class Location extends DataObject {
 		return $formattedMessage;
 	}
 
-	public function getRecordsToInclude() {
+	public function getRecordsToInclude() : array {
 		if (!isset($this->_recordsToInclude)) {
 			$this->_recordsToInclude = [];
 			if (!empty($this->locationId)) {
@@ -2506,7 +2500,7 @@ class Location extends DataObject {
 		return $this->_recordsToInclude;
 	}
 
-	public function saveRecordsToInclude() {
+	public function saveRecordsToInclude() : void {
 		if (isset ($this->_recordsToInclude) && is_array($this->_recordsToInclude)) {
 			$this->saveOneToManyOptions($this->_recordsToInclude, 'locationId');
 			unset($this->_recordsToInclude);
@@ -2531,7 +2525,7 @@ class Location extends DataObject {
 		return $this->_sideLoadScopes;
 	}
 
-	public function saveSideLoadScopes() {
+	public function saveSideLoadScopes() : void {
 		if (isset ($this->_sideLoadScopes) && is_array($this->_sideLoadScopes)) {
 			$this->saveOneToManyOptions($this->_sideLoadScopes, 'locationId');
 			unset($this->_sideLoadScopes);
@@ -2543,6 +2537,7 @@ class Location extends DataObject {
 
 	/**
 	 * @return OverDriveScope[]
+	 * @noinspection PhpUnused
 	 */
 	public function getOverdriveScopeObjects(): array {
 		if ($this->_overdriveScopes == null) {
@@ -2585,7 +2580,7 @@ class Location extends DataObject {
 		}
 	}
 
-	public function saveCoordinates() {
+	public function saveCoordinates() : void {
 		if ($this->address && empty($this->latitude) && empty($this->longitude)) {
 			$address = str_replace("\r\n", ",", $this->address);
 			$address = str_replace(" ", "+", $address);
@@ -2662,7 +2657,7 @@ class Location extends DataObject {
 	private $_opacStatus = null;
 
 	/**
-	 * Check whether or not the system is an opac station.
+	 * Check whether the system is an opac station.
 	 * - First check to see if an opac parameter has been passed.  If so, use that information and set a cookie for future pages.
 	 * - Next check the cookie to see if we have overridden the value
 	 * - Finally check to see if we have an active location based on the IP address.  If we do, use that to determine if this is an opac station
@@ -2684,7 +2679,7 @@ class Location extends DataObject {
 				$activeIP = IPAddress::getActiveIp();
 				require_once ROOT_DIR . '/sys/IP/IPAddress.php';
 				$subnet = IPAddress::getIPAddressForIP($activeIP);
-				if ($subnet != false) {
+				if ($subnet !== false) {
 					$this->_opacStatus = $subnet->isOpac;
 				} else {
 					$this->_opacStatus = false;
@@ -2770,13 +2765,14 @@ class Location extends DataObject {
 		return $this->_websiteFacetSettings;
 	}
 
-	function getEditLink($context): string {
+	/** @noinspection PhpUnusedParameterInspection */
+	public function getEditLink(string $context): string {
 		return '/Admin/Locations?objectAction=edit&id=' . $this->libraryId;
 	}
 
 	protected $_parentLibrary = null;
 
-	/** @return Library */
+	/** @return ?Library */
 	public function getParentLibrary(): ?Library {
 		if ($this->_parentLibrary == null) {
 			$this->_parentLibrary = new Library();
@@ -2784,11 +2780,6 @@ class Location extends DataObject {
 			$this->_parentLibrary->find(true);
 		}
 		return $this->_parentLibrary;
-	}
-
-	public function setGroupedWorkDisplaySettings(GroupedWorkDisplaySetting $newGroupedWorkDisplaySettings) {
-		$this->_groupedWorkDisplaySettings = $newGroupedWorkDisplaySettings;
-		$this->groupedWorkDisplaySettingId = $newGroupedWorkDisplaySettings->id;
 	}
 
 	static $_locationList = [];
@@ -2941,10 +2932,10 @@ class Location extends DataObject {
 		return $this->_themes;
 	}
 
-	public function saveThemes() {
+	public function saveThemes() : void {
 		if (isset ($this->_themes) && is_array($this->_themes)) {
 			foreach ($this->_themes as $obj) {
-				/** @var DataObject $obj */
+				/** @var LocationTheme $obj */
 				if ($obj->_deleteOnSave) {
 					$obj->delete();
 				} else {
@@ -2978,7 +2969,7 @@ class Location extends DataObject {
 		}
 	}
 
-	public function saveEventMapping() {
+	public function saveEventMapping() : void {
 		$locationMap = new EventsBranchMapping();
 		$locationMap->locationId = $this->locationId;
 		if ($locationMap->find(true)) {
@@ -3035,7 +3026,7 @@ class Location extends DataObject {
 		} else {
 			$apiInfo['homeLink'] = $this->homeLink;
 		}
-		if ((empty($this->contactEmail) || $this->contactEmail == null)) {
+		if (empty($this->contactEmail)) {
 			if ($parentLibrary == null) {
 				$apiInfo['email'] = null;
 			} else {
@@ -3106,7 +3097,7 @@ class Location extends DataObject {
 		return $apiInfo;
 	}
 
-	public function loadCopyableSubObjects() {
+	public function loadCopyableSubObjects() : void {
 		if (empty($_REQUEST['aspenLida'])) {
 			$this->lidaLocationSettingId = -1;
 			$this->lidaSelfCheckSettingId = -1;
@@ -3123,16 +3114,8 @@ class Location extends DataObject {
 		if (empty($_REQUEST['eContent'])) {
 			$this->axis360ScopeId = -1;
 			$this->hooplaScopeId = -1;
-			$this->overDriveScopeId = -1;
 			$this->palaceProjectScopeId = -1;
 		} else {
-			$this->getCloudLibraryScope();
-			$index = -1;
-			foreach ($this->_cloudLibraryScopes as $subObject) {
-				$subObject->id = $index;
-				unset($subObject->locationId);
-				$index--;
-			}
 			$this->getSideLoadScopes();
 			$index = -1;
 			foreach ($this->_sideLoadScopes as $subObject) {
@@ -3200,17 +3183,19 @@ class Location extends DataObject {
 						}
 					}
 				}
-				//Local ILL is not available, check to see if VDX is available.
-				require_once ROOT_DIR . '/sys/VDX/VdxSetting.php';
-				require_once ROOT_DIR . '/sys/VDX/VdxForm.php';
-				$vdxSettings = new VdxSetting();
-				if ($vdxSettings->find(true)) {
-					//Get configuration for the form.
-					if ($this->vdxFormId != -1) {
-						$this->_interlibraryLoanType = 'vdx';
+				if ($this->_interlibraryLoanType == 'none') {
+					//Local ILL is not available, check to see if VDX is available.
+					require_once ROOT_DIR . '/sys/VDX/VdxSetting.php';
+					require_once ROOT_DIR . '/sys/VDX/VdxForm.php';
+					$vdxSettings = new VdxSetting();
+					if ($vdxSettings->find(true)) {
+						//Get configuration for the form.
+						if ($this->vdxFormId != -1) {
+							$this->_interlibraryLoanType = 'vdx';
+						}
 					}
 				}
-			} catch (Exception $e) {
+			} catch (Exception) {
 				//This happens if the tables aren't setup, ignore
 			}
 		}
@@ -3236,7 +3221,7 @@ class Location extends DataObject {
 		return $this->_sublocations;
 	}
 
-	public function saveSublocations() {
+	public function saveSublocations() : void {
 		if (isset ($this->_sublocations) && is_array($this->_sublocations)) {
 			$this->saveOneToManyOptions($this->_sublocations, 'locationId');
 			unset($this->_sublocations);
@@ -3248,6 +3233,7 @@ class Location extends DataObject {
 	 * - Remove curbsidePickupInstructionsSetting if the ILS is not Koha.
 	 * - Disable and change the note of curbsidePickupInstructionsSetting if allowCheckIn is enabled.
 	 * - Remove allowUpdatingHoursFromILS if the ILS is not Koha.
+	 * - Remove allowUpdatingContactInfoFromILS if the ILS is not Koha.
 	 *
 	 * @param array $structure
 	 * @return array
@@ -3258,9 +3244,9 @@ class Location extends DataObject {
 			$accountProfile = $parentLibrary->getAccountProfile();
 			$ils = $accountProfile ? $accountProfile->ils : '';
 			if ($ils !== 'koha') {
-				// Currently, only Koha curbside pickups are implemented in Aspen.
 				unset($structure['ilsSection']['properties']['curbsidePickupInstructionsSetting']);
 				unset($structure['hoursSection']['properties']['allowUpdatingHoursFromILS']);
+				unset($structure['hoursSection']['properties']['allowUpdatingContactInfoFromILS']);
 			} else {
 				// Check if "Mark Arrived" is enabled in the CurbsidePickupSetting.
 				require_once ROOT_DIR . '/sys/CurbsidePickups/CurbsidePickupSetting.php';

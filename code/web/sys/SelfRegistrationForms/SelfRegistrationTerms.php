@@ -1,13 +1,20 @@
-<?php
+<?php /** @noinspection PhpMissingFieldTypeInspection */
 class SelfRegistrationTerms extends DataObject {
 	public $__table = 'self_registration_tos';
 	public $id;
 	public $name;
 	public $terms;
+	/** @noinspection PhpUnused */
+	public $showTOSFirst;
 	public $redirect;
 
-	static function getObjectStructure($context = ''): array {
-		return [
+	static $_objectStructure = [];
+	static function getObjectStructure(string $context = ''): array {
+		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
+			return self::$_objectStructure[$context];
+		}
+		/** @noinspection HtmlRequiredAltAttribute */
+		$structure = [
 			'id' => [
 				'property' => 'id',
 				'type' => 'label',
@@ -30,6 +37,13 @@ class SelfRegistrationTerms extends DataObject {
 				'allowableTags' => '<p><em><i><strong><b><a><ul><ol><li><h1><h2><h3><h4><h5><h6><h7><pre><code><hr><table><tbody><tr><th><td><caption><img><br><div><span><sub><sup>',
 				'hideInLists' => true,
 			],
+			'showTOSFirst' => [
+				'property' => 'showTOSFirst',
+				'type' => 'checkbox',
+				'label' => 'Show TOS First',
+				'description' => 'If checked, show TOS before showing registration form',
+				'default' => false,
+			]
 /*			'redirect' => [
 				'property' => 'redirect',
 				'type' => 'html',
@@ -39,21 +53,8 @@ class SelfRegistrationTerms extends DataObject {
 				'hideInLists' => true,
 			],*/
 		];
-	}
 
-	public function update($context = '') {
-		return parent::update();
-	}
-
-	public function insert($context = '') {
-		return parent::insert();
-	}
-
-	public function __get($name) {
-		return parent::__get($name);
-	}
-
-	public function __set($name, $value) {
-		parent::__set($name, $value);
+		self::$_objectStructure[$context] = $structure;
+		return self::$_objectStructure[$context];
 	}
 }
