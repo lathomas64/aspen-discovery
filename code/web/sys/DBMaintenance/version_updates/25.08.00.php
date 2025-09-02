@@ -222,8 +222,6 @@ function getUpdates25_08_00(): array {
 			]
 		], //log_frequent_crons_system_variable
 
-		// Imani Thomas - ByWater
-
 		// Laura Escamilla - ByWater Solutions
 
 		//alexander - Open Fifth

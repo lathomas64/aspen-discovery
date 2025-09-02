@@ -11,6 +11,14 @@ class PWASetting extends DataObject {
 	public $startURL;
 	public $slug;
 	public $sha256CertFingerprint;
+	public $firebaseAPIKey;
+	public $firebaseAuthDomain;
+	public $firebaseProjectID;
+	public $firebaseStorageBucket;
+	public $firebaseMessagingSenderID;
+	public $firebaseAppID;
+	public $firebaseMeasurementID;
+	public $vapidKey;
 
 	private $_libraries;
 
@@ -103,7 +111,6 @@ class PWASetting extends DataObject {
 				'description' => 'description here',
 				'maxLength' => 50,
 				'required' => true,
-
 			],
 			'firebaseAuthDomain' => [
 				'property' => 'firebaseAuthDomain',

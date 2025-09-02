@@ -4,7 +4,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebas
 import { getMessaging, getToken, onMessage, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
 
 // TODO: Replace the following with your app's Firebase project configuration
-// See: https://firebase.google.com/docs/web/learn-more#config-object
+//http://localhost:8083/API/SystemAPI?method=getFirebaseSettings
 const firebaseConfig = {
   
 };
@@ -14,9 +14,10 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Cloud Messaging and get a reference to the service
 const messaging = getMessaging(app);
-getToken(messaging, {vapidKey: "[redacted]"}).then((currentToken) => {
+getToken(messaging, {vapidKey: firebaseConfig['vapidKey']}).then((currentToken) => {
 	if (currentToken) {
-		//send the token to your server and update the UI if necessary
+		// TODO send the token to your server and update the UI if necessary
+		//https://firebase.google.com/docs/cloud-messaging/js/first-message#web
 	} else {
 		//show permission request UI
 		// QUESTION when do we get here? when is token falsey
