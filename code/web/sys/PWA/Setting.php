@@ -186,13 +186,13 @@ class PWASetting extends DataObject {
 
 	function getFirebaseSettings(){
 		return [
-			'firebaseAPIKey' => $this->firebaseAPIKey,
-			'firebaseAuthDomain' =>$this->firebaseAuthDomain,
-			'firebaseProjectID' => $this->firebaseProjectID,
-			'firebaseStorageBucket' => $this->firebaseStorageBucket,
-			'firebaseMessagingSenderID' => $this->firebaseMessagingSenderID,
-			'firebaseAppID' => $this->firebaseAppID,
-			'firebaseMeasurementID' => $this->firebaseMeasurementID,
+			'apiKey' => $this->firebaseAPIKey,
+			'authDomain' =>$this->firebaseAuthDomain,
+			'projectId' => $this->firebaseProjectID,
+			'storageBucket' => $this->firebaseStorageBucket,
+			'messagingSenderId' => $this->firebaseMessagingSenderID,
+			'appId' => $this->firebaseAppID,
+			'measurementId' => $this->firebaseMeasurementID,
 			'vapidKey' => $this->vapidKey
 		];
 	}

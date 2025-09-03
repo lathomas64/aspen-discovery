@@ -1300,6 +1300,10 @@ function loadModuleActionId() {
 				http_response_code('200');
 			}
 		}
+	}catch (Exception $e) {
+		//This happens if web builder is not fully installed, ignore the error.
+	}
+	try {
 		if (array_key_exists('PWA', $enabledModules))
 		{
 			if($requestURI == "/manifest.json") {
@@ -1317,7 +1321,7 @@ function loadModuleActionId() {
 			}
 		}
 	}catch (Exception $e) {
-		//This happens if web builder is not fully installed, ignore the error.
+		//TODO mirroring web builder here maybe we want to conditionally log something though?
 	}
 	//Correct some old actions
 	if (isset($_GET['action'])) {

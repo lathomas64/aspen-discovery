@@ -1,48 +1,59 @@
 //not bundled because we only want to include this if PWA is turned on
 console.log("serviceWorker.js loaded...");
+console.log("updated code...");
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-import { getMessaging, getToken, onMessage, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
+console.log("did we import anything?");
+import { getMessaging, getToken, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
+//import { create } from 'apisauce';
 
 // TODO: Replace the following with your app's Firebase project configuration
 //http://localhost:8083/API/SystemAPI?method=getFirebaseSettings
-const firebaseConfig = {
-  
-};
+fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
+	return response.json();
+}).then(function (data) {
+	if(data.result?.success)
+	{
+		//do things for getting settings here. 
+		console.log(data.result.settings);
+		const firebaseConfig = data.result.settings;
+		// Initialize Firebase
+		const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+		// Initialize Firebase Cloud Messaging and get a reference to the service
+		const messaging = getMessaging(app);
+		console.log(messaging);
+		getToken({vapidKey: firebaseConfig['vapidKey']}).then((currentToken) => {
+			if (currentToken) {
+				// TODO send the token to your server and update the UI if necessary
+				//https://firebase.google.com/docs/cloud-messaging/js/first-message#web
+			} else {
+				//show permission request UI
+				// QUESTION when do we get here? when is token falsey
+				console.log('no registration token available. request permission to generate one.');
+			}
+		}).catch((err) => {
+			console.log('an error occured while retrieving token. ', err);
+		});
 
-// Initialize Firebase Cloud Messaging and get a reference to the service
-const messaging = getMessaging(app);
-getToken(messaging, {vapidKey: firebaseConfig['vapidKey']}).then((currentToken) => {
-	if (currentToken) {
-		// TODO send the token to your server and update the UI if necessary
-		//https://firebase.google.com/docs/cloud-messaging/js/first-message#web
-	} else {
-		//show permission request UI
-		// QUESTION when do we get here? when is token falsey
-		console.log('no registration token available. request permission to generate one.');
+		onBackgroundMessage(messaging, (payload) => {
+			console.log('[firebase-messaging-sw.js] Received background message ', payload);
+			// Customize notification here
+			const notificationTitle = 'Background Message Title';
+			const notificationOptions = {
+			body: 'Background Message body.',
+			icon: '/firebase-logo.png'
+			};
+		
+			self.registration.showNotification(notificationTitle,
+			notificationOptions);
+		});
 	}
-}).catch((err) => {
-	console.log('an error occured while retrieving token. ', err);
-});
-
-onMessage(messaging, (payload) => {
-	console.log('Message received. ', payload);
-});
-
-onBackgroundMessage(messaging, (payload) => {
-	console.log('[firebase-messaging-sw.js] Received background message ', payload);
-	// Customize notification here
-	const notificationTitle = 'Background Message Title';
-	const notificationOptions = {
-	  body: 'Background Message body.',
-	  icon: '/firebase-logo.png'
-	};
-  
-	self.registration.showNotification(notificationTitle,
-	  notificationOptions);
-  });
+	else {
+		//we failed to get settings here. 
+		console.log("We ran into a snag getting settings");
+		console.log(data.result.error)
+	}
+})
 
 const CACHE_NAME = 'aspen-mobile';
 

@@ -50,19 +50,20 @@
 		{if !empty($favicon)}
 			<link type="image/x-icon" href="{$favicon}" rel="shortcut icon">
 		{/if}
+		<link rel="search" type="application/opensearchdescription+xml" title="{$site.title|escape} Catalog Search" href="/Search/OpenSearch?method=describe">
+		{include file="cssAndJsIncludes.tpl"}
 		{if (array_key_exists('PWA', $enabledModules))}
 			<link rel="manifest" href="/manifest.json"/>
-			<script>
+			<script type="module">
 				console.log('test');
 				if (typeof navigator.serviceWorker !== 'undefined') {
 					console.log('sup');
-					navigator.serviceWorker.register('/interface/themes/responsive/js/aspen/serviceWorker.js')
+					navigator.serviceWorker.register('/interface/themes/responsive/js/aspen/serviceWorker.js',{
+						type: 'module'
+					})
 				}
 			</script>
-			<!--<script src="/interface/themes/responsive/js/aspen/serviceWorker.js"></script>-->
 		{/if}
-		<link rel="search" type="application/opensearchdescription+xml" title="{$site.title|escape} Catalog Search" href="/Search/OpenSearch?method=describe">
-		{include file="cssAndJsIncludes.tpl"}
 		{$themeCss}
 		{if !empty($loadRecaptcha)}
 			<script src="https://www.google.com/recaptcha/api.js?onload=onloadCallback&render=explicit" async defer></script>
