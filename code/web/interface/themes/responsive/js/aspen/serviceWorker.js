@@ -3,7 +3,7 @@ console.log("serviceWorker.js loaded...");
 console.log("updated code...");
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
 console.log("did we import anything?");
-import { getMessaging, getToken, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
+import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
 //import { create } from 'apisauce';
 
 // TODO: Replace the following with your app's Firebase project configuration
@@ -22,10 +22,11 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 		// Initialize Firebase Cloud Messaging and get a reference to the service
 		const messaging = getMessaging(app);
 		console.log(messaging);
-		getToken({vapidKey: firebaseConfig['vapidKey']}).then((currentToken) => {
+		getToken(messaging, {vapidKey: firebaseConfig['vapidKey']}).then((currentToken) => {
 			if (currentToken) {
 				// TODO send the token to your server and update the UI if necessary
 				//https://firebase.google.com/docs/cloud-messaging/js/first-message#web
+				console.log(currentToken);
 			} else {
 				//show permission request UI
 				// QUESTION when do we get here? when is token falsey
@@ -35,18 +36,18 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 			console.log('an error occured while retrieving token. ', err);
 		});
 
-		onBackgroundMessage(messaging, (payload) => {
-			console.log('[firebase-messaging-sw.js] Received background message ', payload);
-			// Customize notification here
-			const notificationTitle = 'Background Message Title';
-			const notificationOptions = {
-			body: 'Background Message body.',
-			icon: '/firebase-logo.png'
-			};
+		// onBackgroundMessage(messaging, (payload) => {
+		// 	console.log('[firebase-messaging-sw.js] Received background message ', payload);
+		// 	// Customize notification here
+		// 	const notificationTitle = 'Background Message Title';
+		// 	const notificationOptions = {
+		// 	body: 'Background Message body.',
+		// 	icon: '/firebase-logo.png'
+		// 	};
 		
-			self.registration.showNotification(notificationTitle,
-			notificationOptions);
-		});
+		// 	self.registration.showNotification(notificationTitle,
+		// 	notificationOptions);
+		// });
 	}
 	else {
 		//we failed to get settings here. 
