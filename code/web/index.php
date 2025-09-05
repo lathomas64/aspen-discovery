@@ -1319,6 +1319,13 @@ function loadModuleActionId() {
 				$_REQUEST['module'] = "PWA";
 				$_REQUEST['action'] = "AssetLinks";
 			}
+			else if($requestURI == "/firebase-messaging-sw.js")
+			{
+				$_GET['module'] = "PWA";
+				$_GET['action'] = "Firebase";
+				$_REQUEST['module'] = "PWA";
+				$_REQUEST['action'] = "Firebase";
+			}
 		}
 	}catch (Exception $e) {
 		//TODO mirroring web builder here maybe we want to conditionally log something though?

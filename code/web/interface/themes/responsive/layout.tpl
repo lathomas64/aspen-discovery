@@ -54,15 +54,7 @@
 		{include file="cssAndJsIncludes.tpl"}
 		{if (array_key_exists('PWA', $enabledModules))}
 			<link rel="manifest" href="/manifest.json"/>
-			<script type="module">
-				console.log('test');
-				if (typeof navigator.serviceWorker !== 'undefined') {
-					console.log('sup');
-					navigator.serviceWorker.register('/interface/themes/responsive/js/aspen/serviceWorker.js',{
-						type: 'module'
-					})
-				}
-			</script>
+			<script type="module" src="/interface/themes/responsive/js/aspen/initFCM.js"></script>
 		{/if}
 		{$themeCss}
 		{if !empty($loadRecaptcha)}

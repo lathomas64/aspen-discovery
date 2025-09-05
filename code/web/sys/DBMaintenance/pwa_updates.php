@@ -30,7 +30,7 @@ function getPWAUpdates() {
 					`firebaseMessagingSenderID` varchar(50) NOT NULL,
 					`firebaseAppID` varchar(50) NOT NULL,
 					`firebaseMeasurementID` varchar(50) NOT NULL,
-					`vapidKey` varchar(50) NOT NULL
+					`vapidKey` varchar(100) NOT NULL
 				  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
 			]
 		]

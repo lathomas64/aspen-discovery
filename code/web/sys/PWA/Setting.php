@@ -171,7 +171,7 @@ class PWASetting extends DataObject {
 				'type' => 'text',
 				'label' => 'Vapid Key',
 				'description' => 'description here',
-				'maxLength' => 50,
+				'maxLength' => 100,
 				'required' => true,
 
 			]
