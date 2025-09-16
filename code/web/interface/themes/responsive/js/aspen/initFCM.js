@@ -25,7 +25,13 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 			if (currentToken) {
 				// TODO send the token to your server and update the UI if necessary
 				//https://firebase.google.com/docs/cloud-messaging/js/first-message#web
+				//https://console.firebase.google.com/project/aspen-pwa-test/notification/compose
 				console.log(currentToken);
+				Notification.requestPermission().then((permission) => {
+					if (permission === 'granted') {
+					  console.log('Notification permission granted.');
+					}
+				  });
 			} else {
 				//show permission request UI
 				// QUESTION when do we get here? when is token falsey
@@ -34,19 +40,18 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 		}).catch((err) => {
 			console.log('an error occured while retrieving token. ', err);
 		});
-
-		// onBackgroundMessage(messaging, (payload) => {
-		// 	console.log('[firebase-messaging-sw.js] Received background message ', payload);
-		// 	// Customize notification here
-		// 	const notificationTitle = 'Background Message Title';
-		// 	const notificationOptions = {
-		// 	body: 'Background Message body.',
-		// 	icon: '/firebase-logo.png'
-		// 	};
+		messaging.onBackgroundMessageHandler = (payload) => {
+			console.log('[firebase-messaging-sw.js] Received background message ', payload);
+			// Customize notification here
+			const notificationTitle = 'Background Message Title';
+			const notificationOptions = {
+			body: 'Background Message body.',
+			icon: '/firebase-logo.png'
+			};
 		
-		// 	self.registration.showNotification(notificationTitle,
-		// 	notificationOptions);
-		// });
+			self.registration.showNotification(notificationTitle,
+			notificationOptions);
+		};
 	}
 	else {
 		//we failed to get settings here. 

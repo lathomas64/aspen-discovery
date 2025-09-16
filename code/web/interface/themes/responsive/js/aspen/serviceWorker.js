@@ -1,4 +1,5 @@
 //not bundled because we only want to include this if PWA is turned on
+import { getMessaging, onMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
 console.log("serviceWorker.js loaded...");
 console.log("updated code...");
 
@@ -7,6 +8,13 @@ const CACHE_NAME = 'aspen-mobile';
 const PRECACHE_ASSETS = [
 
 ];
+const messaging = getMessaging();
+
+console.log(messaging);
+self.onMessage(messaging, (payload) => {
+	console.log('Message received. ', payload);
+	// ...
+  });
 
 self.addEventListener('install', event => {
 	console.log("install fired");
@@ -75,6 +83,15 @@ function notifyMe() {
 		  // …
 		}
 	  });
+	}
+
+	function requestPermission() {
+		console.log('Requesting permission...');
+		Notification.requestPermission().then((permission) => {
+		  if (permission === 'granted') {
+			console.log('Notification permission granted.');
+		  }
+		});
 	}
   
 	// At last, if the user has denied notifications, and you
