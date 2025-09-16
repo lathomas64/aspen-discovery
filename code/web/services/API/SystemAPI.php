@@ -50,7 +50,8 @@ class SystemAPI extends AbstractAPI {
 					'getCatalogStatus',
 					'getLocations',
 					'getMaterialsRequestForm',
-					'getFirebaseSettings'
+					'getFirebaseSettings',
+					'saveFirebaseToken'
 				])) {
 					$result = [
 						'result' => $this->$method(),
@@ -1286,6 +1287,12 @@ class SystemAPI extends AbstractAPI {
 				'error' => 'no settings found'
 			];
 		}
+	}
+
+	function saveFirebaseToken() {
+		if (isset($_REQUEST['token'])) {
+			error_log("token received: ".$_REQUEST['token']. " but method not written yet");
+		} 
 	}
 
 	function getBreadcrumbs(): array {

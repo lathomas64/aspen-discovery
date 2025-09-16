@@ -30,6 +30,7 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 				Notification.requestPermission().then((permission) => {
 					if (permission === 'granted') {
 					  console.log('Notification permission granted.');
+					  fetch("/API/SystemAPI?method=saveFirebaseToken&token="+currentToken);
 					}
 				  });
 			} else {
