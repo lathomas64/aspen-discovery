@@ -22,7 +22,11 @@ class SystemAPI extends AbstractAPI {
 
 		if ($method === 'getLogoFile') {
 			return $this->$method();
-		}else if ($method === 'getTranslation' || $method === 'getTranslationWithValues' || $method === 'getBulkTranslations') {
+		}else if ($method === 'getTranslation' 
+			|| $method === 'getTranslationWithValues' 
+			|| $method === 'getBulkTranslations'
+			|| $method === 'getFirebaseSettings' // TODO determine if firebase methods need authentication
+			|| $method === 'saveFirebaseToken') {
 			//These methods don't need additional authentication, just return the data.
 			$result = [
 				'result' => $this->$method(),
