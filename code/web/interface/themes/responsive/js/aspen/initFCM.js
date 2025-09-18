@@ -1,11 +1,8 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
-console.log("did we import anything?");
 import { getMessaging } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
 import { getToken } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging.js";
 //import { create } from 'apisauce';
 
-// TODO: Replace the following with your app's Firebase project configuration
-//http://localhost:8083/API/SystemAPI?method=getFirebaseSettings
 fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 	return response.json();
 }).then(function (data) {
@@ -41,18 +38,6 @@ fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
 		}).catch((err) => {
 			console.log('an error occured while retrieving token. ', err);
 		});
-		messaging.onBackgroundMessageHandler = (payload) => {
-			console.log('[firebase-messaging-sw.js] Received background message ', payload);
-			// Customize notification here
-			const notificationTitle = 'Background Message Title';
-			const notificationOptions = {
-			body: 'Background Message body.',
-			icon: '/firebase-logo.png'
-			};
-		
-			self.registration.showNotification(notificationTitle,
-			notificationOptions);
-		};
 	}
 	else {
 		//we failed to get settings here. 

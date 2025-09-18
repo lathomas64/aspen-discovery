@@ -10,12 +10,7 @@ class PWA_Firebase extends Action {
 		header('Expires: Mon, 26 Jul 1997 05:00:00 GMT'); // Date in the past
 		header('content-type: text/javascript; charset=utf-8');
 		http_response_code(200);
-		echo "if (typeof navigator.serviceWorker !== 'undefined') {
-					console.log('sup');
-					navigator.serviceWorker.register('/interface/themes/responsive/js/aspen/serviceWorker.js',{
-						type: 'module'
-					})
-				}";
+		echo file_get_contents($_SERVER['DOCUMENT_ROOT'].'/interface/themes/responsive/js/aspen/serviceWorker.js');
 	}
 
 	function getBreadcrumbs(): array {

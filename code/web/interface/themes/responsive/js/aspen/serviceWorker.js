@@ -1,20 +1,50 @@
 //not bundled because we only want to include this if PWA is turned on
-import { getMessaging, onMessage } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js";
-console.log("serviceWorker.js loaded...");
-console.log("updated code...");
-
+//importScripts("https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-sw.js");
+importScripts('https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/12.1.0/firebase-messaging-compat.js');
 const CACHE_NAME = 'aspen-mobile';
 
 const PRECACHE_ASSETS = [
 
 ];
-const messaging = getMessaging();
+//sample messaging structure: 
+//{"notification": {
+// 	"title":"Test push message from DevTools.",
+// 	"body":"test body", 
+// 	"path": "/myAccount/Home"}
+//}
+fetch("/API/SystemAPI?method=getFirebaseSettings").then(function (response) {
+	return response.json();
+}).then(function (data) {
+	if(data.result?.success)
+	{
+		//do things for getting settings here. 
+		console.log(data.result.settings);
+		const firebaseConfig = data.result.settings;
+		// Initialize Firebase
+		const app = firebase.initializeApp(firebaseConfig);
+		const messaging = firebase.messaging();
 
-console.log(messaging);
-self.onMessage(messaging, (payload) => {
-	console.log('Message received. ', payload);
-	// ...
-  });
+		console.log(messaging);
+		messaging.onMessage(function(payload) {
+			console.log('message recieved');
+		});
+		messaging.onBackgroundMessage(function(payload) {
+			console.log('[firebase-messaging-sw.js] Received background message ', payload);
+			// Customize notification here
+			const notificationTitle = 'Background Message Title';
+			const notificationOptions = {
+			body: 'Background Message body.',
+			icon: '/firebase-logo.png'
+			};
+		
+			self.registration.showNotification(notificationTitle,
+			notificationOptions);
+		});
+		console.log(messaging);
+		console.log(self);
+	}
+});//TODO truncated add full thing later
 
 self.addEventListener('install', event => {
 	console.log("install fired");
@@ -27,6 +57,12 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
 	console.log("activate fired");
 	event.waitUntil(self.clients.claim());
+});
+self.addEventListener('onmessage', event => {
+	console.log("message:", event);
+});
+self.addEventListener('onMessage', event => {
+	console.log("message?", event);
 });
 
 self.addEventListener('fetch', event => {
@@ -49,10 +85,16 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('push', (event) => {
+	notification = event.data.json().notification;
 	console.log("event push");
+	console.log(event);
+	console.log(event.data.json().notification);
 	event.waitUntil(
-		self.registration.showNotification('Notification Title', {
-			body: 'Notification Body Text',
+		self.registration.showNotification(notification.title, {
+			body: notification.body,
+			data: {
+				"path": notification.path
+			},
 			icon: 'custom-notification-icon.png',
 		})
 	);
@@ -60,40 +102,8 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
 	console.log("notification clicked");
+	console.log(event);
 	event.notification.close();
 	var fullPath = self.location.origin + event.notification.data.path;
 	clients.openWindow(fullPath);
 });
-
-function notifyMe() {
-	if (!("Notification" in window)) {
-	  // Check if the browser supports notifications
-	  alert("This browser does not support desktop notification");
-	} else if (Notification.permission === "granted") {
-	  // Check whether notification permissions have already been granted;
-	  // if so, create a notification
-	  const notification = new Notification("Hi there!");
-	  // …
-	} else if (Notification.permission !== "denied") {
-	  // We need to ask the user for permission
-	  Notification.requestPermission().then((permission) => {
-		// If the user accepts, let's create a notification
-		if (permission === "granted") {
-		  const notification = new Notification("Hi there!");
-		  // …
-		}
-	  });
-	}
-
-	function requestPermission() {
-		console.log('Requesting permission...');
-		Notification.requestPermission().then((permission) => {
-		  if (permission === 'granted') {
-			console.log('Notification permission granted.');
-		  }
-		});
-	}
-  
-	// At last, if the user has denied notifications, and you
-	// want to be respectful there is no need to bother them anymore.
-  }
