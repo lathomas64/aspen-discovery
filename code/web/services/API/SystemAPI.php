@@ -26,7 +26,8 @@ class SystemAPI extends AbstractAPI {
 			|| $method === 'getTranslationWithValues' 
 			|| $method === 'getBulkTranslations'
 			|| $method === 'getFirebaseSettings' // TODO determine if firebase methods need authentication
-			|| $method === 'saveFirebaseToken') {
+			|| $method === 'saveFirebaseToken'
+			|| $method === 'testFirebaseMessage') { // TODO take out testFirebaseMessage from systemAPI before pull request
 			//These methods don't need additional authentication, just return the data.
 			$result = [
 				'result' => $this->$method(),
@@ -1297,6 +1298,114 @@ class SystemAPI extends AbstractAPI {
 		if (isset($_REQUEST['token'])) {
 			error_log("token received: ".$_REQUEST['token']. " but method not written yet");
 		} 
+	}
+
+	function generateJWT($serviceAccount) {
+		$header = json_encode([
+			'alg' => 'RS256',
+			'typ' => 'JWT'
+		]);
+
+		$now = time();
+		$payload = json_encode([
+			'iss' => $serviceAccount['client_email'],
+			'scope' => 'https://www.googleapis.com/auth/firebase.messaging',
+			'aud' => 'https://oauth2.googleapis.com/token',
+			'exp' => $now + 3600,
+			'iat' => $now
+		]);
+
+		$base64UrlHeader = str_replace(['+', '/', '='], ['-','_', ''], base64_encode($header));
+		$base64UrlPayload = str_replace(['+', '/', '='], ['-','_', ''], base64_encode($payload));
+
+		$signature = '';
+		$signed = openssl_sign(
+			$base64UrlHeader . '.' . $base64UrlPayload,
+			$signature,
+			$serviceAccount['private_key'],
+			OPENSSL_ALGO_SHA256
+		);
+
+		$base64UrlSignature = str_replace(['+', '/', '='], ['-','_', ''], base64_encode($signature));
+
+		return $base64UrlHeader . "." . $base64UrlPayload . "." . $base64UrlSignature;
+	}
+	function getAccessToken($serviceAccount)
+	{
+		$jwt = $this->generateJWT($serviceAccount);
+		$ch = curl_init();
+
+		curl_setopt_array($ch, [
+			CURLOPT_URL => 'https://oauth2.googleapis.com/token',
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_POST => true,
+			CURLOPT_POSTFIELDS => http_build_query([
+				'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+				'assertion' => $jwt
+			]),
+			CURLOPT_HTTPHEADER => [
+				'Content-Type: application/x-www-form-urlencoded'
+			]
+		]);
+		$response = curl_exec($ch);
+		$httpCode = curl_getInfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+
+		if ($httpCode !== 200) {
+			throw new Exception('Failed to get access token: ' . $response);
+		}
+
+		$data = json_decode($response, true);
+		return $data['access_token'];
+	}
+
+	function sendFCMessage($accessToken, $projectId, $deviceToken)
+	{
+		$url = "https://fcm.googleapis.com/v1/projects/aspen-pwa-test/messages:send";
+		$message = [
+			'message' => [
+				'token' => $deviceToken,
+				'notification' => [
+					"title" => "Hello from Aspen Discovery",
+					"body" => "This notification sent from within Aspen Discovery"
+				]
+			]
+		];
+
+		$ch = curl_init();
+		curl_setopt_array($ch, [
+			CURLOPT_URL => $url,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_POST => true,
+			CURLOPT_POSTFIELDS => json_encode($message),
+			CURLOPT_HTTPHEADER => [
+				'Authorization: Bearer ' . $accessToken,
+				'Content-Type: application/json'
+			]
+		]);
+
+		$response = curl_exec($ch);
+		$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+
+		return json_decode($response, true);
+	}
+
+	function testFirebaseMessage() {
+		//TODO replace redacted values with pulling data in from file or database
+		$serviceAccountJson = '{
+			"client_email": "REDACTED",
+			"private_key": "REDACTED"
+		}';
+		$serviceAccount = json_decode($serviceAccountJson, true);
+		$serviceAccount['private_key'] = str_replace('\\n', '\n', $serviceAccount['private_key']);
+
+		try {
+			$accessToken = $this->getAccessToken($serviceAccount);
+			$this->sendFCMessage($accessToken, 'aspen-pwa-test', 'REDACTED');
+		} catch (Exception $e) {
+			echo "Error: " . $e->getMessage() . "\n";
+		}
 	}
 
 	function getBreadcrumbs(): array {

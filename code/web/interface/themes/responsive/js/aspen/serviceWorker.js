@@ -85,17 +85,16 @@ self.addEventListener('fetch', event => {
 });
 
 self.addEventListener('push', (event) => {
-	notification = event.data.json().notification;
-	console.log("event push");
-	console.log(event);
-	console.log(event.data.json().notification);
+	event_json = event.data.json();
+	notification = event_json.notification;
+	path = event_json.data?.path;
 	event.waitUntil(
 		self.registration.showNotification(notification.title, {
 			body: notification.body,
 			data: {
-				"path": notification.path
+				"path": path
 			},
-			icon: 'custom-notification-icon.png',
+			icon: notification.image,
 		})
 	);
 });
