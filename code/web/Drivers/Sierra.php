@@ -509,6 +509,7 @@ class Sierra extends Millennium {
 			return [
 				'success' => false,
 				'message' => 'Missing record or patron; unable to retrieve valid pickup locations',
+				'useDefaultLocationFiltering' => true,
 			];
 		}
 		$patronId = $patron->unique_ils_id;
@@ -535,10 +536,11 @@ class Sierra extends Millennium {
 		} else {
 			$message = 'Unable to retrieve valid pickup locations from Sierra. ';
 			$message .= $pickupLocationsResponse->name ?? '';
-			$message .= $pickupLocationsResponse->description ? ': ' . $pickupLocationsResponse->description : '';
+			$message .= !empty($pickupLocationsResponse->description) ? ': ' . $pickupLocationsResponse->description : '';
 			return [
 				'success' => false,
 				'message' => $message,
+				'useDefaultLocationFiltering' => true,
 			];
 		}
 	}
@@ -1698,7 +1700,7 @@ class Sierra extends Millennium {
 				if (isset($_REQUEST['phone'])) {
 					$patron->phone = $_REQUEST['phone'];
 					$tmpPhone = new stdClass();
-					$tmpPhone->type = 'p';
+					$tmpPhone->type = 't';
 					$tmpPhone->number = $_REQUEST['phone'];
 					$params['phones'][] = $tmpPhone;
 				}
@@ -1710,7 +1712,7 @@ class Sierra extends Millennium {
 				if (isset($_REQUEST['workPhone'])) {
 					$patron->_workPhone = $_REQUEST['workPhone'];
 					$tmpPhone = new stdClass();
-					$tmpPhone->type = 't';
+					$tmpPhone->type = 'p';
 					$tmpPhone->number = $_REQUEST['workPhone'];
 					$params['phones'][] = $tmpPhone;
 				}
@@ -2120,7 +2122,7 @@ class Sierra extends Millennium {
 			if ($selfRegistrationForm->selfRegUseAgency) {
 				$params['fixedFields']['158'] = [
 					'label' => 'Patron Agency',
-					'value' => $selfRegistrationForm->selfRegAgency
+					'value' => (string)$selfRegistrationForm->selfRegAgency
 				];
 			}
 			if ($selfRegistrationForm->addSelfRegNote) {
@@ -3650,15 +3652,15 @@ class Sierra extends Millennium {
 	 *
 	 * @param User $user - the user to update notifications for
 	 * @param ILSNotificationSetting $ilsNotificationSetting - the settings to base notifications on
+	 * @param ?CronLogEntry $cronLogEntry - an optional log entry to record information to
 	 * @return array
 	 */
-	public function updateAccountNotifications(User $user, ILSNotificationSetting $ilsNotificationSetting): array {
+	public function updateAccountNotifications(User $user, ILSNotificationSetting $ilsNotificationSetting, ?CronLogEntry $cronLogEntry): array {
 		require_once ROOT_DIR . '/sys/Account/UserILSMessage.php';
-
-		$numMessagesAdded = 0;
 
 		$sierraDnaConnection = $this->connectToSierraDNA();
 		if (!$sierraDnaConnection) {
+			if (!is_null($cronLogEntry)) {$cronLogEntry->notes .= 'Could not connect to the Sierra Database<br/>';}
 			return [
 				'success' => false,
 				'message' => 'Could not connect to the Sierra database'
@@ -3679,7 +3681,7 @@ class Sierra extends Millennium {
 		$datetime14DaysAgo = new DateTime();
 		date_sub($datetime14DaysAgo, new DateInterval('P14D'));
 		$datetime21DaysAgo = new DateTime();
-		date_sub($datetime14DaysAgo, new DateInterval('P21D'));
+		date_sub($datetime21DaysAgo, new DateInterval('P21D'));
 		$loadHoldReadyForPickup = $user->canReceiveILSNotification('hold_ready');
 		$loadHoldExpiresSoon = $user->canReceiveILSNotification('hold_expire');
 		$numMessagesAdded = 0;
@@ -3751,17 +3753,8 @@ class Sierra extends Millennium {
 							$numMessagesAdded += $this->createIlsMessage($user, 'overdue_1', $ilsNotificationSetting, $existingMessage);
 						}
 					}elseif ($dueDateTime <= $dateTime3DaysFromNow->getTimestamp()) {
-						if (!$loadCheckoutDueSoon) {
-							continue;
-						}
-						$existingMessage->type = 'checkout_due_soon';
-						if (!$existingMessage->find(true)) {
-							$existingMessage->status = 'pending';
-							$existingMessage->title = 'Items Due Soon';
-							$existingMessage->defaultContent = 'Some materials are your account are due soon. Some materials may automatically may renew. If renewed, the Due Date has been updated.';
-							$existingMessage->content = 'Some materials are your account are due soon. Some materials may automatically may renew. If renewed, the Due Date has been updated.';
-							$existingMessage->dateQueued = $datetimeNow->getTimestamp();
-							$existingMessage->insert();
+						if ($loadCheckoutDueSoon) {
+							$numMessagesAdded += $this->createIlsMessage($user, 'checkout_due_soon', $ilsNotificationSetting, $existingMessage);
 						}
 					}
 				}
@@ -3838,8 +3831,8 @@ class Sierra extends Millennium {
 			$ilsMessageType = $ilsNotificationSetting->getMessageTypeByCode($messageCode);
 			if ($ilsMessageType != null) {
 				$existingMessage->status = 'pending';
-				$existingMessage->title = $ilsMessageType->getTextBlockTranslation('message_title', $user->interfaceLanguage, true);
-				$existingMessage->content = $ilsMessageType->getTextBlockTranslation('message_body', $user->interfaceLanguage, true);
+				$existingMessage->title = $ilsMessageType->getTextBlockTranslation('messageTitle', $user->interfaceLanguage, true);
+				$existingMessage->content = $ilsMessageType->getTextBlockTranslation('messageBody', $user->interfaceLanguage, true);
 				$existingMessage->dateQueued = time();
 				if ($existingMessage->insert()) {
 					return 1;

@@ -26,7 +26,7 @@
 							id="lookfor"
 							name="lookfor"
 							title="{translate text="Enter one or more terms to search for.	Surrounding a term with quotes will limit result to only those that exactly match the term." isPublicFacing=true inAttribute=true}"
-							onfocus="$(this).select()"
+							onfocus="$(this).trigger('select')"
 							autocomplete="off"
 							aria-labelledby="lookfor-label"
 							aria-required="true"
@@ -51,7 +51,8 @@
 							{/literal}
 						</script>
 						{foreach from=$searchIndexes item=searchDesc key=searchVal}
-							<option value="{$searchVal}"{if !empty($searchIndex) && $searchIndex == $searchVal} selected="selected"{/if}>{translate text=$searchDesc inAttribute=true isPublicFacing=true}</option>
+							{* The descriptions are already translated and do not need to be retranslated *}
+							<option value="{$searchVal}"{if !empty($searchIndex) && $searchIndex == $searchVal} selected="selected"{/if}>{$searchDesc}</option>
 						{/foreach}
 
 						{* Add Advanced Search *}

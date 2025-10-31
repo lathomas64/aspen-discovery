@@ -37,7 +37,7 @@ class GroupedWorksSolrConnector2 extends Solr {
 		return $result['response']['docs'][0] ?? null;
 	}
 
-	function getRecordByIsbn($isbns, $fieldsToReturn = null) {
+	function getRecordByIsbn($isbns, $fieldsToReturn = null) : ?array {
 		// Query String Parameters
 		if ($fieldsToReturn == null) {
 			$fieldsToReturn = SearchObject_GroupedWorkSearcher2::$fields_to_return;
@@ -51,14 +51,75 @@ class GroupedWorksSolrConnector2 extends Solr {
 			AspenError::raiseError($result);
 		}
 
-		if (isset($result['response']['docs'][0])) {
-			return $result['response']['docs'][0];
-		} else {
-			return null;
-		}
+		return $result['response']['docs'][0] ?? null;
 	}
 
-	function searchForRecordIds($ids) {
+	/**
+	 * Retrieves a document specified by the ID.
+	 *
+	 * @param ?array $ids A list of document to retrieve from Solr
+	 * @param ?string $fieldsToReturn An optional list of fields to return separated by commas
+	 * @param bool $applyScoping whether scoping should be applied to the search
+	 * @return    array                            The requested resources
+	 * @throws    AspenError
+	 */
+	function getRecords(?array $ids, ?string $fieldsToReturn = null, bool $applyScoping = false) : array {
+		if (empty($ids)) {
+			return [];
+		}
+		//Solr does not seem to be able to return more than 50 records at a time,
+		//If we have more than 50 ids, we will need to make multiple calls and
+		//concatenate the results.
+		$records = [];
+		$startIndex = 0;
+		$batchSize = 40;
+
+		$lastBatch = false;
+		while (true) {
+			$endIndex = $startIndex + $batchSize;
+			if ($endIndex >= count($ids)) {
+				$lastBatch = true;
+				$endIndex = count($ids);
+				$batchSize = count($ids) - $startIndex;
+			}
+			$tmpIds = array_slice($ids, $startIndex, $batchSize);
+
+			// Query String Parameters
+			$idString = implode(' OR ', $tmpIds);
+			$options = ['q' => "id:($idString)"];
+			$options['fl'] = $fieldsToReturn;
+			$options['rows'] = count($tmpIds);
+
+			if ($applyScoping) {
+				global $solrScope;
+				$options['fq'] = "availability_toggle:\"$solrScope#global\"";
+			}
+
+			// Send Request
+			global $timer;
+			$timer->logTime("Prepare to send get (ids)  request to solr");
+			$getRecordsUrl = $this->host . "/select?" . http_build_query($options);
+			$result = $this->client->curlGetPage($getRecordsUrl);
+			$timer->logTime("Send data to solr for getRecords");
+
+			if ($result) {
+				$result = $this->_process($result);
+
+				foreach ($result['response']['docs'] as $record) {
+					$records[$record['id']] = $record;
+				}
+			}
+			if ($lastBatch) {
+				break;
+			} else {
+				$startIndex = $endIndex;
+			}
+		}
+		//echo("Found " . count($records) . " records.	Should have found " . count($ids) . "\r\n<br/>");
+		return $records;
+	}
+
+	function searchForRecordIds(array $ids) : array {
 		if (count($ids) == 0) {
 			return [];
 		}
@@ -212,16 +273,18 @@ class GroupedWorksSolrConnector2 extends Solr {
 		}
 		
 		$scopingFilters = $this->getScopingFilters($searchLibrary, $searchLocation);
-		$editionLimiter = "edition_info:$solrScope#*";
-		if (isset($format) && $limitFormat) {
-			$editionLimiter .= "#" . str_replace(' ', '_', $format);
-		}else{
-			$editionLimiter .= "#*";
-		}
-		if ($availableOnly) {
-			$options['fq'][] = "($editionLimiter#available#*) OR ($editionLimiter#available_online#*)";
-		}else{
-			$options['fq'][] = "$editionLimiter#$selectedAvailabilityToggle#*";
+		if (!$this->editionLimitersAreDisabled()) {
+			$editionLimiter = "edition_info:$solrScope#*";
+			if (isset($format) && $limitFormat) {
+				$editionLimiter .= "#" . str_replace(' ', '_', $format);
+			} else {
+				$editionLimiter .= "#*";
+			}
+			if ($availableOnly) {
+				$options['fq'][] = "($editionLimiter#available#*) OR ($editionLimiter#available_online#*)";
+			} else {
+				$options['fq'][] = "$editionLimiter#$selectedAvailabilityToggle#*";
+			}
 		}
 
 		foreach ($scopingFilters as $filter) {
@@ -388,6 +451,9 @@ class GroupedWorksSolrConnector2 extends Solr {
 		global $activeLanguage;
 
 		$boostFactors = [];
+		if ($this->boostingDisabled) {
+			return $boostFactors;
+		}
 
 		if (UserAccount::isLoggedIn()) {
 			$searchPreferenceLanguage = UserAccount::getActiveUserObj()->searchPreferenceLanguage;
@@ -454,15 +520,17 @@ class GroupedWorksSolrConnector2 extends Solr {
 		$filter = [];
 
 		//Simplify detecting which works are relevant to our scope
-		if (!$solrScope) {
-			//MDN: This does happen when called within migration tools
-			if (isset($searchLocation)) {
-				$filter[] = "edition_info:$searchLocation->code#*";
-			} elseif (isset($searchLibrary)) {
-				$filter[] = "edition_info:$searchLibrary->subdomain#*";
+		if (!$this->editionLimitersAreDisabled()) {
+			if (!$solrScope) {
+				//MDN: This does happen when called within migration tools
+				if (isset($searchLocation)) {
+					$filter[] = "edition_info:$searchLocation->code#*";
+				} elseif (isset($searchLibrary)) {
+					$filter[] = "edition_info:$searchLibrary->subdomain#*";
+				}
+			} else {
+				$filter[] = "edition_info:$solrScope#*";
 			}
-		} else {
-			$filter[] = "edition_info:$solrScope#*";
 		}
 
 		global $activeLanguage;
@@ -484,7 +552,7 @@ class GroupedWorksSolrConnector2 extends Solr {
 
 	protected function getHighlightOptions($fields, &$options) {
 		global $solrScope;
-		$highlightFields = $fields . ",table_of_contents";
+		$highlightFields = $fields;
 		$highlightFields = str_replace(",related_record_ids_$solrScope", '', $highlightFields);
 		$highlightFields = str_replace(",related_items_$solrScope", '', $highlightFields);
 		$highlightFields = str_replace(",format_$solrScope", '', $highlightFields);

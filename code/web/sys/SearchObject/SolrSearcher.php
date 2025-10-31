@@ -853,14 +853,14 @@ abstract class SearchObject_SolrSearcher extends SearchObject_BaseSearcher {
 		return $allSuggestions;
 	}
 
-	protected function getFieldsToReturn() {
+	protected function getFieldsToReturn() : string {
 		return '*,score';
 	}
 
 	/**
 	 * @param String $fields - a list of comma separated fields to return
 	 */
-	function setFieldsToReturn($fields) {
+	function setFieldsToReturn(string $fields) : void {
 		//Do nothing, the fields are not customizable at this level
 	}
 

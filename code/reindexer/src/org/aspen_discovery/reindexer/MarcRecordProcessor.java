@@ -1,5 +1,6 @@
 package org.aspen_discovery.reindexer;
 
+import com.turning_leaf_technologies.indexing.IndexingProfile;
 import org.aspen_discovery.format_classification.MarcRecordFormatClassifier;
 import com.turning_leaf_technologies.indexing.BaseIndexingSettings;
 import com.turning_leaf_technologies.logging.BaseIndexingLogEntry;
@@ -33,6 +34,9 @@ abstract class MarcRecordProcessor {
 	PreparedStatement marcRecordAsSuppressedNoMarcStmt;
 	PreparedStatement getRecordSuppressionInformationStmt;
 
+	protected ArrayList<Integer> seriesFieldsToIndexWith800;
+	protected ArrayList<Integer> seriesFieldsToIndexWith830;
+
 	MarcRecordProcessor(GroupedWorkIndexer indexer, String profileType, Connection dbConn, Logger logger) {
 		this.indexer = indexer;
 		this.logger = logger;
@@ -45,6 +49,12 @@ abstract class MarcRecordProcessor {
 			indexer.getLogEntry().incErrors("Error setting up prepared statements for loading MARC from the DB", e);
 		}
 		formatClassifier = new MarcRecordFormatClassifier(logger);
+		seriesFieldsToIndexWith800 = new ArrayList<>();
+		seriesFieldsToIndexWith800.add(800);
+		seriesFieldsToIndexWith800.add(810);
+		seriesFieldsToIndexWith800.add(811);
+		seriesFieldsToIndexWith830 = new ArrayList<>();
+		seriesFieldsToIndexWith830.add(830);
 	}
 
 	/**
@@ -372,13 +382,15 @@ abstract class MarcRecordProcessor {
 			groupedWork.addCorporateNameSubject(name);
 		}
 
-		List<DataField> seriesFields = MarcUtil.getDataFields(record, new int[]{830, 899});
+		List<DataField> seriesFields = MarcUtil.getDataFields(record, seriesFieldsToIndexWith830);
 		for (DataField seriesField : seriesFields){
 			String series = AspenStringUtils.trimTrailingPunctuation(MarcUtil.getSpecifiedSubfieldsAsString(seriesField, "anp"," ")).toString();
 			//Remove anything in parentheses since it's normally just the format
 			//series = series.replaceAll("\\s+\\(.*?\\)", "");
 			//Remove the word series at the end since this gets cataloged inconsistently
-			series = series.replaceAll("(?i)\\s+series$", "");
+			if (indexer.isRemoveTheWordSeriesFromEndOfSeries()) {
+				series = series.replaceAll("(?i)\\s+series$", "");
+			}
 			String seriesLanguage = AspenStringUtils.trimTrailingPunctuation(MarcUtil.getSpecifiedSubfieldsAsString(seriesField, "l","")).toString();
 			if (!seriesLanguage.isEmpty()) {
 				series = series + " (" + seriesLanguage + ")";
@@ -391,7 +403,8 @@ abstract class MarcRecordProcessor {
 			groupedWork.addSeriesWithVolume(series, volume, 3);
 			groupedWork.addSeries(series);
 		}
-		seriesFields = MarcUtil.getDataFields(record, new int[]{800, 810, 811, 896, 897, 898});
+
+		seriesFields = MarcUtil.getDataFields(record, seriesFieldsToIndexWith800);
 		for (DataField seriesField : seriesFields){
 			String subfields;
 			if (seriesField.getNumericTag() == 800 || seriesField.getNumericTag() == 896) {
@@ -408,7 +421,9 @@ abstract class MarcRecordProcessor {
 			//No longer remove parentheses to better differentiate series
 			//series = series.replaceAll("\\s+\\(.*?\\)", "");
 			//Remove the word series at the end since this gets cataloged inconsistently
-			series = series.replaceAll("(?i)\\s+series$", "");
+			if (indexer.isRemoveTheWordSeriesFromEndOfSeries()) {
+				series = series.replaceAll("(?i)\\s+series$", "");
+			}
 
 			String volume = "";
 			if (seriesField.getSubfield('v') != null){
@@ -427,7 +442,9 @@ abstract class MarcRecordProcessor {
 				//Remove anything in parentheses since it's normally just the format
 				//series = series.replaceAll("\\s+\\(.*?\\)", "");
 				//Remove the word series at the end since this gets cataloged inconsistently
-				series = series.replaceAll("(?i)\\s+series$", "");
+				if (indexer.isRemoveTheWordSeriesFromEndOfSeries()) {
+					series = series.replaceAll("(?i)\\s+series$", "");
+				}
 
 				String volume = "";
 				if (seriesField.getSubfield('v') != null) {

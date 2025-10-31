@@ -29,7 +29,7 @@ class GroupedWorksSolrConnector extends Solr {
 		return $result['response']['docs'][0] ?? null;
 	}
 
-	function getRecordByIsbn($isbns, $fieldsToReturn = null) {
+	function getRecordByIsbn($isbns, $fieldsToReturn = null) : ?array {
 		// Query String Parameters
 		if ($fieldsToReturn == null) {
 			$fieldsToReturn = SearchObject_GroupedWorkSearcher::$fields_to_return;
@@ -50,7 +50,7 @@ class GroupedWorksSolrConnector extends Solr {
 		}
 	}
 
-	function searchForRecordIds($ids) {
+	function searchForRecordIds(array $ids) : array {
 		if (count($ids) == 0) {
 			return [];
 		}
@@ -415,7 +415,7 @@ class GroupedWorksSolrConnector extends Solr {
 
 	protected function getHighlightOptions($fields, &$options) {
 		global $solrScope;
-		$highlightFields = $fields . ",table_of_contents";
+		$highlightFields = $fields;
 		$highlightFields = str_replace(",related_record_ids_$solrScope", '', $highlightFields);
 		$highlightFields = str_replace(",related_items_$solrScope", '', $highlightFields);
 		$highlightFields = str_replace(",format_$solrScope", '', $highlightFields);

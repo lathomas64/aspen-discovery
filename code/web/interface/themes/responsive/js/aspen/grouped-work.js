@@ -737,75 +737,24 @@ AspenDiscovery.GroupedWork = (function(){
 			return false;
 		},
 
-		initializeHorizontalFormatSwipers: function(workId) {
-			this.manifestationSwipers[workId] = new Swiper('.swiper-manifestations-' + workId, {
-				slidesPerView: 4,
-				spaceBetween: 5,
-				direction: 'horizontal',
-				slideToClickedSlide: true,
-				freeMode: true,
+		initializeHorizontalFormatSwipers: function (workId) {
+			var container = document.getElementById('slider-' + workId);
+			AspenDiscovery.initializeHorizontalSwiper(container, function (slide) {
+				var workId = slide.getAttribute('data-workId');
+				var format = slide.getAttribute('data-format');
+				var cleanedWorkId = slide.getAttribute('data-cleanedWorkId');
+				AspenDiscovery.GroupedWork.showManifestation(workId, format, cleanedWorkId);
+			});
+		},
 
-				// Accessibility
-				a11y: {
-					enabled: true
-				}
-			});
-			// Fix keyboard navigation
-			$(".swiper-manifestations-" + workId + " .swiper-wrapper > .swiper-slide:not(.swiper-slide-visible) a").prop("tabindex", "-1");
-			$(".swiper-manifestations-" + workId + " .swiper-wrapper > .swiper-slide-visible a").removeProp("tabindex");
-			var swiper = AspenDiscovery.GroupedWork.manifestationSwipers[workId];
-			var prevBtn = $('#swiper-button-manifestation-prev-' + workId);
-			var nextBtn = $('#swiper-button-manifestation-next-' + workId);
-			$(prevBtn).on('click', function () {
-				AspenDiscovery.GroupedWork.customSwiperNavPrev(swiper, prevBtn, nextBtn);
-			});
-			$(nextBtn).on('click', function () {
-				AspenDiscovery.GroupedWork.customSwiperNavNext(swiper, prevBtn, nextBtn);
-			});
-			AspenDiscovery.GroupedWork.updateCustomSwiperNav(swiper, prevBtn, nextBtn);
-			this.manifestationSwipers[workId].on('click', function (swiper, event) {
-				if (swiper.clickedIndex !== undefined) {
-					swiper.slideTo(swiper.clickedIndex);
-					$('.swiper-manifestations-' + workId + ' .swiper-slide').removeClass('swiper-slide-active');
-					const clickedSlide = swiper.slides[swiper.clickedIndex];
-					if (clickedSlide) {
-						const container = $(clickedSlide).closest('[data-workid="' + workId + '"]');
-						container.addClass('swiper-slide-active');
-						AspenDiscovery.GroupedWork.showManifestation(clickedSlide.dataset.workid, clickedSlide.dataset.format, clickedSlide.dataset.cleanedworkid);
-					}
-				}
-			});
-			this.manifestationSwipers[workId].on('slideChange', function (swiper, event) {
-				AspenDiscovery.GroupedWork.updateCustomSwiperNav(swiper, prevBtn, nextBtn);
-			});
-			this.manifestationSwipers[workId].on('setTranslate', function (translate) {
-				swiper._customOffset = Math.round(Math.abs(translate) / swiper.slides[0].offsetWidth) * swiper.slides[0].offsetWidth;
-				AspenDiscovery.GroupedWork.updateCustomSwiperNav(swiper, prevBtn, nextBtn);
-			});
-			this.variationSwipers[workId] = new Swiper('.swiper-variations-' + workId, {
-				slidesPerView: 4,
-				spaceBetween: 5,
-				slidesPerGroup: 4,
-				direction: 'horizontal',
-				slideToClickedSlide: true,
-
-				// Accessibility
-				a11y: {
-					enabled: true
-				},
-
-				// Navigation arrows
-				navigation: {
-					nextEl: '#swiper-button-variation-next-' + workId,
-					prevEl: '#swiper-button-variation-prev-' + workId
-				}
-			});
-			// Fix keyboard navigation
-			$('#swiper-button-variation-next-' + workId + " .swiper-wrapper > .swiper-slide:not(.swiper-slide-visible) a").prop("tabindex", "-1");
-			$('#swiper-button-variation-next-' + workId + " .swiper-wrapper > .swiper-slide-visible a").removeProp("tabindex");
-			this.variationSwipers[workId].on('slideChangeTransitionEnd', function () {
-				$('#swiper-button-variation-next-' + workId + " .swiper-wrapper > .swiper-slide:not(.swiper-slide-visible) a").prop("tabindex", "-1");
-				$('#swiper-button-variation-next-' + workId + " .swiper-wrapper > .swiper-slide-visible a").removeProp("tabindex");
+		initializeHorizontalSourceSwipers: function (workId) {
+			var container = document.getElementById('variationsInfo_' + workId);
+			AspenDiscovery.initializeHorizontalSwiper(container, function (slide) {
+				var workId = slide.getAttribute('data-workId');
+				var format = slide.getAttribute('data-format');
+				var cleanedWorkId = slide.getAttribute('data-cleanedWorkId');
+				var variationId = slide.getAttribute('data-variationId');
+				AspenDiscovery.GroupedWork.showVariation(workId, format, variationId, cleanedWorkId);
 			});
 		},
 
@@ -820,24 +769,30 @@ AspenDiscovery.GroupedWork = (function(){
 				this.showVariation(workId, format, activeVariationInfo.databaseId, cleanedWorkId);
 			}else{
 				//Show variations swiper
-				let variationSwiper = this.variationSwipers[workId];
-				variationSwiper.removeAllSlides();
-				$.each(activeManifestationInfo.variations, function(){
-					let variationButton = '<div class="swiper-slide horizontal-format-button">\n' +
-						'<a onclick="return AspenDiscovery.GroupedWork.showVariation(\'' + workId + '\', \'' + format + '\', \'' + this.databaseId + '\', \'' + cleanedWorkId + '\');">' +
+				let variationSlider = $('#slider-variations-' + workId);
+				variationsInfoElement.show();
+				variationSlider.html('');
+				var i = 0;
+				$.each(activeManifestationInfo.variations, function () {
+					var activeClass = (i === 0) ? ' active' : '';
+					var variationButton = '<div role="option" tabindex="0" class="slider-slide horizontal-format-button slider-sm' + activeClass + '" data-workId="' + workId + '" data-variationid="' + this.databaseId + '" data-format="' + format + '" data-cleanedWorkId="' + cleanedWorkId + '">\n' +
+						'<div>' +
 						this.label + '<br/>' + this.groupedStatus +
-						'</a>' +
-						'</div>'
-					variationSwiper.appendSlide(variationButton);
+						'</div>' +
+						'</div>';
+					variationSlider.append(variationButton);
+					i++;
 				});
 				variationsInfoElement.show();
 				//Show the first variation
 				const activeVariationInfo = Object.values(activeManifestationInfo.variations)[0];
 				this.showVariation(workId, format, activeVariationInfo.databaseId, cleanedWorkId);
+				this.initializeHorizontalSourceSwipers(workId);
 			}
 
 			return false;
 		},
+
 
 		showVariation: function(workId, format, variationId, cleanedWorkId){
 			let activeManifestationInfoJSON = this.groupedWorks[cleanedWorkId][format];
@@ -862,7 +817,8 @@ AspenDiscovery.GroupedWork = (function(){
 			$.getJSON(url, params, function (data){
 				if (data.success) {
 					$("#variationInfo_" + workId).html(data.message);
-				}else{
+					AspenDiscovery.LazyCirculation.scanAndRefresh("#variationInfo_" + workId);
+				} else {
 					$("#variationInfo_" + workId).html("");
 				}
 			});
@@ -882,7 +838,8 @@ AspenDiscovery.GroupedWork = (function(){
 			$.getJSON(url, params, function (data){
 				if (data.success) {
 					$("#horizDisplayAllEditions_" + workId).html(data.message);
-				}else{
+					AspenDiscovery.LazyCirculation.scanAndRefresh("#horizDisplayAllEditions_" + workId);
+				} else {
 					$("#horizDisplayAllEditions_" + workId).html("");
 				}
 			});
@@ -895,49 +852,52 @@ AspenDiscovery.GroupedWork = (function(){
 			$("#horizDisplayAllEditions_" + workId).html("");
 			return false;
 		},
-		updateCustomSwiperNav: function (swiper, prevBtnSelector, nextBtnSelector) {
-			var slideWidth = swiper.slides[0].offsetWidth;
-			var maxOffset = (swiper.slides.length - swiper.params.slidesPerView) * slideWidth;
-			if (typeof swiper._customOffset === 'undefined') swiper._customOffset = 0;
-
-			// Use Swiper's actual translate for accuracy
-			var currentOffset = Math.abs(swiper.getTranslate ? swiper.getTranslate() : swiper.translate);
-
-			var tolerance = 1; // px tolerance for floating point errors
-
-			// Disable prev if at beginning
-			if (currentOffset <= tolerance) {
-				$(prevBtnSelector).addClass('swiper-button-disabled');
-			} else {
-				$(prevBtnSelector).removeClass('swiper-button-disabled');
-			}
-			// Disable next if at end
-			if (currentOffset >= (maxOffset - tolerance)) {
-				$(nextBtnSelector).addClass('swiper-button-disabled');
-			} else {
-				$(nextBtnSelector).removeClass('swiper-button-disabled');
+		initializeHorizontalEditionSelectionSwipers: function () {
+			var container = document.getElementById('slider-edition');
+			AspenDiscovery.initializeHorizontalSwiper(container, function (slide) {
+			});
+		},
+		checkEditions: function (volumeId, defaultRememberChoice) {
+			var option = $('#selectedVolume option[value="' + volumeId + '"]');
+			if (option.data('has-editions') === true) {
+				var editionsJson = option.attr('data-editions');
+				var editionOptions = editionsJson ? JSON.parse(editionsJson) : [];
+				if (editionOptions && !Array.isArray(editionOptions)) {
+					editionOptions = Object.values(editionOptions);
+				}
+				var html = '';
+				var count = editionOptions.length;
+				editionOptions.forEach(function (edition, idx) {
+					var current = idx + 1;
+					html += '<div role="option" tabindex="0" class="slider-slide horizontal-edition-option' + (idx === 0 ? ' active' : '') + '">';
+					html += '<label for="editionOption' + idx + '">';
+					html += '<div class="edition-radio"><input type="radio" name="selectedEdition" id="editionOption' + idx + '" value="' + edition.id + '" ' + (idx === 0 ? 'checked' : '') + '> ' + edition.label + '</div>';
+					html += '<div class="edition-cover"><img src="' + edition.coverUrl + '" class="img-thumbnail" alt="Book Cover"></div>';
+					html += '<div class="edition-data">' + edition.publicationDate + '. ' + edition.publisher + '. ' + edition.physical + '.<br/>' + edition.statusIndicator + '<br/><span>' + current + ' of ' + count + ' editions</span></div>';
+					html += '</label></div>';
+				});
+				$('#slider-edition .slider-wrapper').html(html);
+				AspenDiscovery.GroupedWork.initializeHorizontalEditionSelectionSwipers();
+				if (defaultRememberChoice == 2) {
+					$('#editionSelectionOptions').show();
+					$('#editionSelectionSlider').show();
+					$('#editionSelectionOptionRemember').show();
+				} else {
+					$('#editionSelectionOptions').hide();
+					$('#editionSelectionSlider').hide();
+					$('#editionSelectionOptionRemember').hide();
+				}
 			}
 		},
-		customSwiperNavPrev: function (swiper, prevBtnSelector, nextBtnSelector) {
-			var slideWidth = swiper.slides[0].offsetWidth;
-			// Sync customOffset with actual translate (round to nearest slide)
-			var currentOffset = Math.abs(swiper.getTranslate ? swiper.getTranslate() : swiper.translate);
-			var slidesScrolled = Math.round(currentOffset / slideWidth);
-			var newOffset = Math.max((slidesScrolled - 1) * slideWidth, 0);
-			swiper._customOffset = newOffset;
-			swiper.setTranslate(-swiper._customOffset);
-			this.updateCustomSwiperNav(swiper, prevBtnSelector, nextBtnSelector);
-		},
-		customSwiperNavNext: function (swiper, prevBtnSelector, nextBtnSelector) {
-			var slideWidth = swiper.slides[0].offsetWidth;
-			var maxOffset = (swiper.slides.length - swiper.params.slidesPerView) * slideWidth;
-			// Sync customOffset with actual translate (round to nearest slide)
-			var currentOffset = Math.abs(swiper.getTranslate ? swiper.getTranslate() : swiper.translate);
-			var slidesScrolled = Math.round(currentOffset / slideWidth);
-			var newOffset = Math.min((slidesScrolled + 1) * slideWidth, maxOffset);
-			swiper._customOffset = newOffset;
-			swiper.setTranslate(-swiper._customOffset);
-			this.updateCustomSwiperNav(swiper, prevBtnSelector, nextBtnSelector);
+		showEditionSwiper: function () {
+			var option = $('#selectedEditionOption').val();
+			if (option === '2') {
+				$('#editionSelectionSlider').show();
+				$('#editionSelectionOptionRemember').hide();
+			} else {
+				$('#editionSelectionSlider').hide();
+				$('#editionSelectionOptionRemember').show();
+			}
 		}
 	};
 }(AspenDiscovery.GroupedWork || {}));

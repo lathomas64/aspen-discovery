@@ -30,6 +30,7 @@ public class ItemInfo{
 	private String trimmedIType;
 	private String ITypeCode;
 	private String eContentSource;
+	private String eContentSubSource;
 	private String trimmedEContentSource;
 	private String eContentFilename;
 	private String eContentUrl;
@@ -291,6 +292,10 @@ public class ItemInfo{
 		return eContentSource;
 	}
 
+	String geteContentSubSource() {
+		return eContentSubSource;
+	}
+
 	String getTrimmedEContentSource(){
 		return trimmedEContentSource;
 	}
@@ -298,6 +303,10 @@ public class ItemInfo{
 	void seteContentSource(String eContentSource) {
 		this.eContentSource = eContentSource;
 		this.trimmedEContentSource = AspenStringUtils.trimTrailingPunctuation(eContentSource);
+	}
+
+	void seteContentSubSource(String eContentSubSource) {
+		this.eContentSubSource = eContentSubSource;
 	}
 
 	String getCallNumber() {
@@ -552,7 +561,8 @@ public class ItemInfo{
 		recordsIncludedScopes = new StringBuffer("~");
 		locationOwnedNames = new HashSet<>();
 		libraryOwnedNames = new HashSet<>();
-		for (ScopingInfo scope : scopingInfo.values()){
+		ArrayList<ScopingInfo> scopes = new ArrayList<>(scopingInfo.values());
+		for (ScopingInfo scope : scopes){
 			Scope curScope = scope.getScope();
 			if (scope.isLocallyOwned()){
 				locationOwnedScopes.append(curScope.getId()).append("~");
@@ -566,10 +576,10 @@ public class ItemInfo{
 		}
 	}
 
-	private HashSet<String> formatsForIndexing = null;
-	public HashSet<String> getFormatsForIndexing() {
+	private ArrayList<String> formatsForIndexing = null;
+	public ArrayList<String> getFormatsForIndexing() {
 		if (formatsForIndexing == null){
-			formatsForIndexing = new HashSet<>();
+			formatsForIndexing = new ArrayList<>();
 			if (format != null){
 				formatsForIndexing.add(format);
 			}else{
@@ -579,10 +589,10 @@ public class ItemInfo{
 		return formatsForIndexing;
 	}
 
-	private HashSet<String> formatCategoriesForIndexing = null;
-	public HashSet<String> getFormatCategoriesForIndexing() {
+	private ArrayList<String> formatCategoriesForIndexing = null;
+	public ArrayList<String> getFormatCategoriesForIndexing() {
 		if (formatCategoriesForIndexing == null){
-			formatCategoriesForIndexing = new HashSet<>();
+			formatCategoriesForIndexing = new ArrayList<>();
 			if (formatCategory != null){
 				formatCategoriesForIndexing.add(formatCategory);
 			}else{

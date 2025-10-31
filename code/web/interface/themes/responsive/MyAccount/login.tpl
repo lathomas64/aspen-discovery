@@ -86,7 +86,7 @@
 						<div class="col-xs-12 col-sm-offset-4 col-sm-8">
 							<label for="showPwd" class="checkbox">
 								<input type="checkbox" id="showPwd" name="showPwd" onclick="return AspenDiscovery.pwdToText('password')">
-								{translate text="Reveal Password" isPublicFacing=true}
+								{translate text="Reveal %1%" 1=$passwordLabel isPublicFacing=true}
 							</label>
 
 							{if empty($inLibrary) && empty($isOpac) && empty($isStandalonePage)}
@@ -122,7 +122,7 @@
 {/strip}
 {literal}
 <script type="text/javascript">
-	$('#username').focus().select();
+	$('#username').trigger('focus').trigger('select');
 	$(function(){
 		AspenDiscovery.Account.validateCookies();
 		var hasLocalStorage = AspenDiscovery.hasLocalStorage() || false;
@@ -157,7 +157,7 @@
 		}
 		{/literal}{* // Once Box is shown, focus on username input and Select the text;
 			$("#modalDialog").on('shown.bs.modal', function(){
-				$('#username').focus().select();
+				$('#username').trigger('focus').trigger('select');
 			})*}{literal}
 	});
 </script>

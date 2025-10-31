@@ -2,18 +2,22 @@
 	<div class="result row palace_project_checkout_{$record->recordId|escapeCSS}_{$record->userId}">
 		{* Cover Column *}
 		{if !empty($showCovers)}
-			{*<div class="col-xs-4">*}
 			<div class="col-xs-3 col-sm-4 col-md-3 checkedOut-covers-column">
 				<div class="row">
+					<div class="selectTitle hidden-xs col-sm-1">
+						{if !isset($record->canRenew) || $record->canRenew == true}
+							<input type="checkbox" name="selected[{$record->userId}|{$record->recordId}]" class="titleSelect" id="selected{$record->recordId}">
+						{/if}
+					</div>
 					<div class="{*coverColumn *}text-center col-xs-12 col-sm-10">
 						{if $disableCoverArt != 1}{*TODO: should become part of $showCovers *}
 							{if $record->getCoverUrl()}
 								{if $record->recordId && $record->getLinkUrl()}
 									<a href="{$record->getLinkUrl()}" id="descriptionTrigger{$record->recordId|escapeCSS}" aria-hidden="true">
-										<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}">
+										<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}">
 									</a>
 								{else} {* Cover Image but no Record-View link *}
-									<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}" aria-hidden="true">
+									<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}" aria-hidden="true">
 								{/if}
 							{/if}
 						{/if}

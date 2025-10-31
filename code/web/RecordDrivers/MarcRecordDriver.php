@@ -125,10 +125,10 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 	/**
 	 * overriding getLinkUrl from RecordInterface to check
 	 * the conditions which cause us to load the invalidRecord.tpl
-	 * template when viewing a record. 
-	 * 
+	 * template when viewing a record.
+	 *
 	 * @param bool $absolutePath if true prepend site url from config to the result
-	 * @return string url for the record or an empty string 
+	 * @return string url for the record or an empty string
 	 */
 	public function getLinkUrl($absolutePath = false) {
 		if(!$this->isValid())
@@ -691,7 +691,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 	/** @noinspection PhpUnused */
 	public function get880Title() : string {
 		$this->loadAlternateGraphicRepresentations();
-		return $this->_alternateGraphicRepresentations['title'];
+		return $this->_alternateGraphicRepresentations['title'] ?? '';
 	}
 
 	/** @noinspection PhpUnused */
@@ -1273,7 +1273,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 		return $records;
 	}
 
-	function getFormatCategory() {
+	function getFormatCategory() : string|array|null {
 		return $this->getGroupedWorkDriver()->getFormatCategory();
 	}
 
@@ -1292,7 +1292,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 
 			if (UserAccount::isLoggedIn()) {
 				$user = UserAccount::getActiveUserObj();
-				$this->_actions[$variationId] = array_merge($this->_actions[$variationId], $user->getCirculatedRecordActions($this->getIndexingProfile()->name, $this->id));
+				$this->_actions[$variationId] = array_merge($this->_actions[$variationId], $user->getCirculatedRecordActionsWithLazyLoading($this->getIndexingProfile()->name, $this->id));
 			}
 
 			$treatVolumeHoldsAsItemHolds = $this->getCatalogDriver()->treatVolumeHoldsAsItemHolds();
@@ -1398,14 +1398,14 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 										//VDX does not support volumes, we'll just prompt for a regular VDX
 										$this->_actions[$variationId][] = getVdxRequestAction($this->getModule(), $source, $id);
 									} elseif ($interLibraryLoanType == 'localIll') {
-										$this->_actions[$variationId][] = getMultiVolumeRequestAction($this->getModule(), $source, $id, $this);
+										$this->_actions[$variationId][] = getMultiVolumeRequestAction($this->getModule(), $source, $id, $this, count($itemsWithoutVolumes));
 									}
 								}else{
 									$this->_actions[$variationId][] = getUntitledVolumeHoldAction($this->getModule(), $source, $id, $variationId);
 								}
 							} else {
 								//The button will show a message to the patron no volumes can be requested
-								$this->_actions[$variationId][] = getNoVolumesCanBeRequestedAction($this->getModule(), $source, $id);
+								$this->_actions[$variationId][] = getNoVolumesCanBeRequestedAction($id);
 							}
 						}else{
 							//We will need to show a popup to select the volume
@@ -1572,6 +1572,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 						'requireLogin' => false,
 						'alt' => $alt,
 						'target' => '_blank',
+						'type' => 'access_online'
 					];
 				}
 			}
@@ -1669,7 +1670,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 			$this->_physicalDescriptions = [];
 			$physicalDescriptionFields = $this->getFields('300|530', true);
 			foreach ($physicalDescriptionFields as $field) {
-				if ($field == '300') {
+				if ($field->getTag() == '300') {
 					$info = $this->getSubfieldArray($field, ['a', 'b', 'c', 'e', 'f', 'g'], true);
 				}else{
 					$info = $this->getSubfieldArray($field, ['a', 'b', 'c', 'd'], true);
@@ -1973,8 +1974,8 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 			}
 		}
 
-		// Only add copies section if there are non-eContent holdings to display.
-		if ($hasNonEContentHoldings) {
+		// Only add copies section if there are non-eContent holdings to display or if it's a periodical (with setting enabled).
+		if ($hasNonEContentHoldings || ($this->isPeriodical() && $library->getGroupedWorkDisplaySettings()->showCopiesForPeriodicalsWithNoItems)) {
 			$moreDetailsOptions['copies'] = [
 				'label' => 'Copies',
 				'body' => $interface->fetch('Record/view-holdings.tpl'),
@@ -2445,10 +2446,9 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 	 * @param IlsVolumeInfo[] $volumeData
 	 * @return array
 	 */
-	function getVolumeHolds($volumeData) {
-		$holdInfo = null;
+	function getVolumeHolds(array $volumeData) : array {
+		$holdInfo = [];
 		if (count($volumeData) > 0) {
-			$holdInfo = [];
 			foreach ($volumeData as $volumeInfo) {
 				$ilsHoldInfo = new IlsHoldSummary();
 				$ilsHoldInfo->ilsId = $volumeInfo->volumeId;
@@ -2554,13 +2554,14 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 		return $notes;
 	}
 
-	private $holdings;
-	private $copiesInfoLoaded = false;
-	private $holdingSections;
-	private $statusSummary;
-	private $holdingsHaveUrls = false;
+	private ?array $holdings;
+	private bool $copiesInfoLoaded = false;
+	private ?array $holdingSections;
+	//Looks like this can be null, a Grouping_Record or an empty Array?
+	private null|Grouping_Record|array $statusSummary;
+	private bool $holdingsHaveUrls = false;
 
-	private function loadCopies() {
+	private function loadCopies() : void {
 		if (!$this->copiesInfoLoaded) {
 			$this->copiesInfoLoaded = true;
 			$indexingProfile = $this->getIndexingProfile();
@@ -2695,10 +2696,20 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 								}
 							}
 						}
-						//if ($copyInfo['shelfLocation'] != '') {
 						$this->holdingSections[$sectionName]['holdings'][] = $copyInfo;
-						//}
+					}
 
+					//Sort each holding section
+					$isPeriodical = $this->isPeriodical();
+					foreach ($this->holdingSections as $sectionName => $sectionInfo) {
+						$holdings = $sectionInfo['holdings'];
+						require_once ROOT_DIR . '/sys/Utils/GroupingUtils.php';
+						if ($isPeriodical) {
+							$holdings = sortPeriodicalItemsByShelfLocationAndCallNumber($holdings);
+						}else{
+							$holdings = sortItemsByShelfLocationAndCallNumber($holdings);
+						}
+						$this->holdingSections[$sectionName]['holdings'] = $holdings;
 					}
 
 					$this->statusSummary = $recordFromIndex;
@@ -2713,7 +2724,6 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 				}
 			} else {
 				//This will happen for linked records where we are not indexing the grouped work
-
 				$this->holdings = [];
 				$this->holdingSections = [];
 				$this->statusSummary = [];
@@ -2721,7 +2731,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 		}
 	}
 
-	public function assignCopiesInformation() {
+	public function assignCopiesInformation() : void {
 		$this->loadCopies();
 		global $interface;
 		$hasLastCheckinData = false;
@@ -2748,43 +2758,48 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 		$interface->assign('hasDueDate', $hasDueDate);
 		$interface->assign('holdings', $this->holdings);
 		$interface->assign('sections', $this->holdingSections);
-
 		$interface->assign('statusSummary', $this->statusSummary);
 		global $timer;
 		$timer->logTime("Assigned copy information");
 	}
 
-	public function getCopies() {
+	public function getCopies() : array {
 		$this->loadCopies();
 		return $this->holdings;
 	}
 
-	public function isPeriodical() {
-		$ils = 'Unknown';
-		if ($this->getIndexingProfile()->getAccountProfile() != null) {
-			$ils = $this->getIndexingProfile()->getAccountProfile()->ils;
-
-		}
-		//If this is a periodical we may have additional information
-		$isPeriodical = false;
-		require_once ROOT_DIR . '/sys/Indexing/FormatMapValue.php';
-		foreach ($this->getFormats() as $format) {
-			if ($ils == 'sierra' || $ils == 'millennium') {
-				$formatValue = new FormatMapValue();
-				$formatValue->format = $format;
-				$formatValue->displaySierraCheckoutGrid = 1;
-				if ($formatValue->find(true)) {
-					$isPeriodical = true;
-					break;
-				}
-			}else{
-				if ($format == 'Journal' || $format == 'Newspaper' || $format == 'Print Periodical' || $format == 'Magazine') {
-					$isPeriodical = true;
-					break;
+	private ?bool $_isPeriodical = null;
+	public function isPeriodical() : bool {
+		if ($this->_isPeriodical === null) {
+			$ils = 'Unknown';
+			if ($this->getIndexingProfile() instanceof IndexingProfile) {
+				if ($this->getIndexingProfile()->getAccountProfile() != null) {
+					$ils = $this->getIndexingProfile()->getAccountProfile()->ils;
 				}
 			}
+
+			//If this is a periodical we may have additional information
+			$isPeriodical = false;
+			require_once ROOT_DIR . '/sys/Indexing/FormatMapValue.php';
+			foreach ($this->getFormats() as $format) {
+				if ($ils == 'sierra' || $ils == 'millennium') {
+					$formatValue = new FormatMapValue();
+					$formatValue->format = $format;
+					$formatValue->displaySierraCheckoutGrid = 1;
+					if ($formatValue->find(true)) {
+						$isPeriodical = true;
+						break;
+					}
+				} else {
+					if ($format == 'Journal' || $format == 'Newspaper' || $format == 'Print Periodical' || $format == 'Magazine') {
+						$isPeriodical = true;
+						break;
+					}
+				}
+			}
+			$this->_isPeriodical = $isPeriodical;
 		}
-		return $isPeriodical;
+		return $this->_isPeriodical;
 	}
 
 	public function loadPeriodicalInformation() {
@@ -3150,7 +3165,7 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 								if (array_key_exists($tmpOwningLibraryCode, $libraryCodeToDisplayName)) {
 									$owningLibrary = $libraryCodeToDisplayName[$tmpOwningLibraryCode];
 									break;
-								//Handle sierra quirks where the actual location code is specified with a z at the end
+									//Handle sierra quirks where the actual location code is specified with a z at the end
 								} elseif (array_key_exists($tmpOwningLibraryCode . 'z', $libraryCodeToDisplayName)) {
 									$owningLibrary = $libraryCodeToDisplayName[$tmpOwningLibraryCode . 'z'];
 									break;
@@ -3410,5 +3425,3 @@ class MarcRecordDriver extends GroupedWorkSubDriver {
 		return $descriptionField->getSubfield('a')->getData();
 	}
 }
-
-

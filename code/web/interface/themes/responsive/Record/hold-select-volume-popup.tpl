@@ -1,5 +1,5 @@
 {strip}
-<div id="page-content" class="content">
+	<div id="page-content" class="content">
 	<form name="placeHoldForm" id="placeHoldForm" method="post" class="form">
 		<input type="hidden" name="id" id="id" value="{$id}">
 		<input type="hidden" name="recordSource" id="recordSource" value="{$recordSource}">
@@ -37,6 +37,12 @@
 					{/if}
 					<input type="hidden" name="user" id="user" value="{$user->id}">
 				{else}
+					{if !empty($pickupLocationInvalidMessage)}
+						<div class="alert alert-warning">
+							{$pickupLocationInvalidMessage}
+						</div>
+					{/if}
+
 					<div id="pickupLocationOptions" class="form-group">
 						<label class="control-label" for="pickupBranch">{translate text="I want to pick this up at" isPublicFacing=true} </label>
 						<div class="controls">
@@ -82,7 +88,7 @@
 							{$linkedUser->id}: "{$linkedUser->displayName|escape:javascript} - {$linkedUser->getHomeLibrarySystemName()|escape:javascript}",
 							{/foreach}
 							{rdelim};
-							$('#pickupBranch').change(function(){ldelim}
+							$('#pickupBranch').on('change', function(){ldelim}
 								var users = $('option:selected', this).data('users');
 								var options = '';
 								if (typeof(users) !== "undefined") {ldelim}
@@ -91,7 +97,7 @@
 									{rdelim});
 								{rdelim}
 								$('#userOption select').html(options);
-							{rdelim}).change(); /* trigger on the initial load */
+							{rdelim}).trigger('change'); /* trigger on the initial load */
 						{rdelim});
 					</script>
 				{/if}
@@ -112,13 +118,39 @@
 					<input type="hidden" name="holdType" id="holdType" value="volume"/>
 				{/if}
 				<div id="volumeSelection" class="form-group" {if empty($majorityOfItemsHaveVolumes)}style="display: none" {/if}>
-					<select name="selectedVolume" id="selectedVolume" class="form-control" aria-label="{translate text="Selected Volume" isPublicFacing=true}">
+					<select name="selectedVolume" id="selectedVolume" class="form-control" aria-label="{translate text="Selected Volume" isPublicFacing=true}" onchange="AspenDiscovery.GroupedWork.checkEditions(this.value, {$holdPromptForEditions});">
 						<option value="unselected" selected disabled>{translate text="Please select a volume from the list below" isPublicFacing=true}</option>
 						{foreach from=$volumes item=volume}
-							<option value="{$volume->volumeId}" {if $volume->needsIllRequest()}disabled{/if}>{$volume->displayLabel}{if $alwaysPlaceVolumeHoldWhenVolumesArePresent && $volume->hasLocalItems()} ({translate text="Owned by %1%" 1=$localSystemName isPublicFacing=true}){/if}{if $volume->needsIllRequest()} {translate text="Not Requestable" isPublicFacing=true}{/if}</option>
+							<option value="{$volume->volumeId}" {if $volume->needsIllRequest()}disabled{/if} data-has-editions="{if !empty($volume->_editions)}true{else}false{/if}" {if !empty($volume->_editions)}data-editions='{json_encode($volume->_editions)|escape:"html"}'{/if}>{$volume->displayLabel}{if $alwaysPlaceVolumeHoldWhenVolumesArePresent && $volume->hasLocalItems()} ({translate text="Owned by %1%" 1=$localSystemName isPublicFacing=true}){/if}{if $volume->needsIllRequest()} {translate text="Not Requestable" isPublicFacing=true}{/if}</option>
 						{/foreach}
 					</select>
 				</div>
+
+                {if $holdPromptForEditions > 0 && $promptForEdition}
+				<div id="select-edition-prompt">
+	                <div id="editionSelectionOptions" class="form-group" style="display: none">
+		                <label class="control-label" for="selectedEditionOption">{translate text="Do you want to place a hold on the first available item or a specific edition?" isPublicFacing=true}</label>
+		                <select name="selectedEditionOption" id="selectedEditionOption" class="form-control" onchange="AspenDiscovery.GroupedWork.showEditionSwiper()">
+			                <option value="1" {if $holdPromptForEditions == 1}selected{/if}>{translate text="Place hold on first available item" isPublicFacing=true}</option>
+			                <option value="2" {if $holdPromptForEditions == 2}selected{/if}>{translate text="Place hold on specific edition" isPublicFacing=true}</option>
+		                </select>
+	                </div>
+					<div id="editionSelectionSlider" class="horizontalSliders" style="display:none">
+						<div class="row horizontalEditionSelector">
+							<div class="col-xs-12">
+								<div class="slider-container" role="region" id="slider-edition">
+									<div class="slider-button slider-button-prev" id="slider-prev-edition"></div>
+									<div class="slider-wrapper" role="listbox" aria-activedescendant="slide-edition-0"></div>
+									<div class="slider-button slider-button-next" id="slider-next-edition"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<div id="editionSelectionOptionRemember" class="form-group" style="display:none">
+						<label for="rememberEditionSelection" class="checkbox"><input type="checkbox" name="rememberEditionSelection" id="rememberEditionSelection" {if $rememberEditionSelection}checked{/if}>{if $holdPromptForEditions == 1}{translate text="Never ask me about placing specific editions on hold" isPublicFacing=true}{else}{translate text="Always ask me about placing specific editions on hold" isPublicFacing=true}{/if}</label>
+					</div>
+				</div>
+                {/if}
 
 				{if $showHoldCancelDate == 1}
 					<div id="cancelHoldDate" class="form-group">

@@ -325,6 +325,17 @@
 												{/if}
 											</div>
 										{/if}
+
+										{if $showHoldPromptForEditions  && !empty($isAssociatedWithILS)}
+											<div class="form-group propertyRow">
+												<label for="rememberHoldPromptForEdition" class="control-label">{translate text='Always place holds on suggested edition' isPublicFacing=true}</label>&nbsp;
+												{if $edit == true}
+													<input type="checkbox" class="form-control" name="rememberHoldPromptForEdition" id="rememberHoldPromptForEdition" {if $profile->rememberHoldPromptForEdition==1}checked='checked'{/if} data-switch="">
+												{else}
+													{if $profile->rememberHoldPromptForEdition==0}{translate text="No" isPublicFacing=true}{else}{translate text="Yes" isPublicFacing=true}{/if}
+												{/if}
+											</div>
+										{/if}
 									</div>
 								</div>
 							</div>
@@ -495,7 +506,7 @@
 					{* Initiate any checkbox with a data attribute set to data-switch=""  as a bootstrap switch *}
 					{literal}
 					$(function(){ $('input[type="checkbox"][data-switch]').bootstrapSwitch()});
-					$("#usernameHelpButton").click(function() {
+					$("#usernameHelpButton").on('click', function() {
 						var helpButton = $(this);
 						if (helpButton.attr("aria-expanded") === "true") {
 							$("#usernameHelp").css('display', 'none');

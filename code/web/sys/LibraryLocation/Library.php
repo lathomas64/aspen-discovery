@@ -227,8 +227,8 @@ class Library extends DataObject {
 		$eContentLinkRules;
 	public $novelistSettingId;
 	public $syndeticsSettingId;
-	public /** @noinspection PhpUnused */
-		$allowAutomaticSearchReplacements;
+	public $allowAutomaticSearchReplacements;
+	public $allowAutomaticFaceting;
 
 	public /** @noinspection PhpUnused */
 		$worldCatUrl;
@@ -343,6 +343,7 @@ class Library extends DataObject {
 	public $selfRegistrationUserProfile;
 	public $selfRegistrationFormId;
 	public $addSMSIndicatorToPhone;
+	public $enableThirdPartySMSNotifications;
 
 	public $allowLinkedAccounts;
 	public $allowFilteringOfLinkedAccountsInHolds;
@@ -397,6 +398,7 @@ class Library extends DataObject {
 	public $expiredMessage;
 	public $expirationNearMessage;
 	public $showOnOrderCounts;
+	public $holdPromptForEditions;
 
 	//Notes
 	public $showOpacNotes;
@@ -1334,6 +1336,7 @@ class Library extends DataObject {
 						'maxLength' => 10,
 						'description' => 'Optional workstation ID for transactions. If different than main workstation ID, set for the account profile.',
 						'permissions' => ['Library ILS Connection'],
+						'relatedIls' => ['polaris'],
 					],
 					'scope' => [
 						'property' => 'scope',
@@ -1345,6 +1348,7 @@ class Library extends DataObject {
 						'default' => 0,
 						'forcesReindex' => true,
 						'permissions' => ['Library ILS Connection'],
+						'relatedIls' => ['millennium', 'sierra'],
 					],
 					'useScope' => [
 						'property' => 'useScope',
@@ -1411,7 +1415,6 @@ class Library extends DataObject {
 						],
 						'label' => 'Show While You Wait',
 						'description' => 'Whether or not the user should be shown suggestions of other titles they might like.',
-						'note' => 'To use this setting effectively you should include',
 						'hideInLists' => true,
 						'default' => 1,
 						'permissions' => ['Library ILS Options'],
@@ -1442,6 +1445,7 @@ class Library extends DataObject {
 						'hideInLists' => true,
 						'default' => 1,
 						'permissions' => ['Library ILS Options'],
+						'relatedIls' => ['koha', 'sierra', 'symphony'],
 					],
 					'allowLinkedAccounts' => [
 						'property' => 'allowLinkedAccounts',
@@ -1744,17 +1748,19 @@ class Library extends DataObject {
 								'default' => 'w',
 								'readonly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['sierra'],
 							],
 							'allowNameUpdates' => [
 								'property' => 'allowNameUpdates',
 								'type' => 'checkbox',
 								'label' => 'Allow Patrons to Update Their Name',
 								'description' => 'Whether or not patrons should be able to update their name in their profile.',
-								'note' => 'Applies to Koha Only',
+								'note' => 'Applies to Koha and Polaris Only',
 								'hideInLists' => true,
 								'default' => 1,
 								'readOnly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha', 'polaris'],
 							],
 							'setUsePreferredNameInIlsOnUpdate' => [
 								'property' => 'setUsePreferredNameInIlsOnUpdate',
@@ -1766,6 +1772,7 @@ class Library extends DataObject {
 								'default' => 1,
 								'readOnly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'replaceAllFirstNameWithPreferredName' => [
 								'property' => 'replaceAllFirstNameWithPreferredName',
@@ -1777,6 +1784,7 @@ class Library extends DataObject {
 								'default' => 0,
 								'readOnly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha'],
 							],
 							'allowDateOfBirthUpdates' => [
 								'property' => 'allowDateOfBirthUpdates',
@@ -1788,6 +1796,7 @@ class Library extends DataObject {
 								'default' => 0,
 								'readOnly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha'],
 							],
 							'allowPatronAddressUpdates' => [
 								'property' => 'allowPatronAddressUpdates',
@@ -1843,6 +1852,7 @@ class Library extends DataObject {
 								'description' => 'Enabling this will allow patron account modifications to bypass the review queue in Koha. Updates will be applied to the user account automatically without needing approval.',
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha'],
 							],
 							'showAlternateLibraryOptionsInProfile' => [
 								'property' => 'showAlternateLibraryOptionsInProfile',
@@ -1862,17 +1872,19 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['carlx', 'sierra', 'symphony'],
 							],
 							'allowPatronWorkPhoneNumberUpdates' => [
 								'property' => 'allowPatronWorkPhoneNumberUpdates',
 								'type' => 'checkbox',
 								'label' => 'Allow Patrons to Update Their Work Phone Number',
-								'note' => 'Applies to CARL.X, Sierra, and Symphony Only',
+								'note' => 'Applies to Sierra Only',
 								'description' => 'Whether or not patrons should be able to update their own work phone number in their profile.',
 								'hideInLists' => true,
 								'default' => 1,
 								'readOnly' => false,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['sierra'],
 							],
 							'showCellphoneInProfile' => [
 								'property' => 'showCellphoneInProfile',
@@ -1883,6 +1895,7 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'showNoticeTypeInProfile' => [
 								'property' => 'showNoticeTypeInProfile',
@@ -1893,6 +1906,7 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['carlx', 'polaris', 'sierra', 'symphony'],
 							],
 							'symphonyDefaultPhoneField' => [
 								'property' => 'symphonyDefaultPhoneField',
@@ -1903,6 +1917,7 @@ class Library extends DataObject {
 								'size' => '16',
 								'default' => 'PHONE',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'symphonyNoticeCategoryNumber' => [
 								'property' => 'symphonyNoticeCategoryNumber',
@@ -1914,6 +1929,7 @@ class Library extends DataObject {
 								'size' => '2',
 								'default' => '',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'symphonyNoticeCategoryOptions' => [
 								'property' => 'symphonyNoticeCategoryOptions',
@@ -1925,6 +1941,7 @@ class Library extends DataObject {
 								'size' => '128',
 								'default' => '',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'symphonyBillingNoticeCategoryNumber' => [
 								'property' => 'symphonyBillingNoticeCategoryNumber',
@@ -1936,6 +1953,7 @@ class Library extends DataObject {
 								'size' => '2',
 								'default' => '',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'symphonyBillingNoticeCategoryOptions' => [
 								'property' => 'symphonyBillingNoticeCategoryOptions',
@@ -1947,6 +1965,7 @@ class Library extends DataObject {
 								'size' => '128',
 								'default' => '',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 							'addSMSIndicatorToPhone' => [
 								'property' => 'addSMSIndicatorToPhone',
@@ -1956,6 +1975,17 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['millennium'],
+							],
+							'enableThirdPartySMSNotifications' => [
+								'property' => 'enableThirdPartySMSNotifications',
+								'type' => 'checkbox',
+								'label' => 'Enable Third-Party SMS Notifications',
+								'description' => 'Enable third-party SMS notifications using CarlX User Defined Fields. This replaces &quot;SMS notices for available holds&quot; and &quot;SMS notices for due date reminders&quot; fields.',
+								'hideInLists' => true,
+								'default' => 0,
+								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['carlx'],
 							],
 							'maxFinesToAllowAccountUpdates' => [
 								'property' => 'maxFinesToAllowAccountUpdates',
@@ -2138,6 +2168,7 @@ class Library extends DataObject {
 								'default' => 0,
 								'note' => 'Applies to Polaris Only',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['polaris'],
 							],
 							'allowCancellingAvailableHolds' => [
 								'property' => 'allowCancellingAvailableHolds',
@@ -2148,6 +2179,7 @@ class Library extends DataObject {
 								'default' => 0,
 								'note' => 'Applies to Polaris and Symphony Only',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['polaris', 'symphony'],
 							],
 							'allowCancellingInTransitHolds' => [
 								'property' => 'allowCancellingInTransitHolds',
@@ -2158,6 +2190,7 @@ class Library extends DataObject {
 								'default' => 1,
 								'note' => 'Applies to CARL.X Only',
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['carlx'],
 							],
 							'allowFreezeHolds' => [
 								'property' => 'allowFreezeHolds',
@@ -2223,6 +2256,7 @@ class Library extends DataObject {
 								'note' => 'Applies to Symphony Only',
 								'hideInLists' => true,
 								'default' => 0,
+								'relatedIls' => ['symphony'],
 							],
 							'holdRange' => [
 								'property' => 'holdRange',
@@ -2235,6 +2269,7 @@ class Library extends DataObject {
 								'description' => 'The hold range to use when placing holds in Symphony',
 								'note' => 'Applies to Symphony Only',
 								'default' => 'SYSTEM',
+								'relatedIls' => ['symphony'],
 							],
 							'systemHoldNote' => [
 								'property' => 'systemHoldNote',
@@ -2245,6 +2280,7 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'maxLength' => 50,
 								'default' => '',
+								'relatedIls' => ['symphony'],
 							],
 							'systemHoldNoteMasquerade' => [
 								'property' => 'systemHoldNoteMasquerade',
@@ -2255,6 +2291,21 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'maxLength' => 50,
 								'default' => '',
+								'relatedIls' => ['symphony'],
+							],
+							'holdPromptForEditions' => [
+								'property' => 'holdPromptForEditions',
+								'type' => 'enum',
+								'values' => [
+									'0' => 'Do not prompt user to pick an edition (default behavior)',
+									'1' => 'Prompt user to pick an edition, but default to suggested edition',
+									'2' => 'Prompt user to pick an edition',
+								],
+								'label' => 'Prompt for Edition when Placing Holds?',
+								'description' => 'Determines if the user should be prompted to select an edition when placing a hold from this library.',
+								'hideInLists' => true,
+								'default' => '0',
+								'permissions' => ['Library ILS Connection'],
 							],
 						],
 					],
@@ -2284,6 +2335,7 @@ class Library extends DataObject {
 								'description' => 'Whether or not patrons can see if checked out items have holds on them.',
 								'hideInLists' => true,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha'],
 							],
 							'alwaysDisplayRenewalCount' => [
 								'property' => 'alwaysDisplayRenewalCount',
@@ -2301,6 +2353,7 @@ class Library extends DataObject {
 								'description' => 'Whether or not patrons can renew titles that were checked out from another hold group.',
 								'hideInLists' => true,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['symphony'],
 							],
 						],
 					],
@@ -2396,6 +2449,7 @@ class Library extends DataObject {
 								'hideInLists' => true,
 								'default' => 0,
 								'permissions' => ['Library ILS Connection'],
+								'relatedIls' => ['koha'],
 							],
 							'allowLoginToPatronsOfThisLibraryOnly' => [
 								'property' => 'allowLoginToPatronsOfThisLibraryOnly',
@@ -2420,6 +2474,7 @@ class Library extends DataObject {
 						'label' => 'Messages',
 						'hideInLists' => true,
 						'permissions' => ['Library ILS Connection'],
+						'relatedIls' => ['koha'],
 						'properties' => [
 							'showOpacNotes' => [
 								'property' => 'showOpacNotes',
@@ -2429,6 +2484,7 @@ class Library extends DataObject {
 								'note' => 'Applies to Koha Only',
 								'hideInLists' => true,
 								'default' => 0,
+								'relatedIls' => ['koha'],
 							],
 							'showBorrowerMessages' => [
 								'property' => 'showBorrowerMessages',
@@ -2438,6 +2494,7 @@ class Library extends DataObject {
 								'note' => 'Applies to Koha Only',
 								'hideInLists' => true,
 								'default' => 0,
+								'relatedIls' => ['koha'],
 							],
 							'showDebarmentNotes' => [
 								'property' => 'showDebarmentNotes',
@@ -2447,6 +2504,7 @@ class Library extends DataObject {
 								'note' => 'Applies to Koha Only',
 								'hideInLists' => true,
 								'default' => 0,
+								'relatedIls' => ['koha'],
 							],
 						],
 					],
@@ -2926,8 +2984,8 @@ class Library extends DataObject {
 						'hideInLists' => true,
 						'default' => '',
 						'maxLength' => 12,
+						'relatedIls' => ['symphony'],
 					],
-					//'symphonyPaymentPolicy' => array('property'=>'symphonyPaymentPolicy', 'type'=>'text', 'label'=>'Symphony Payment Policy', 'description'=>'Payment policy to use when adding transactions to Symphony.', 'hideInLists' => true, 'default' => '', 'maxLength' => 8),
 					'paymentBranchSource' => [
 						'property' => 'paymentBranchSource',
 						'type' => 'enum',
@@ -2941,6 +2999,7 @@ class Library extends DataObject {
 						'description' => 'Where to get the branch code to use when completing payments.',
 						'note' => 'Applies to Carl.X Only',
 						'hideInLists' => true,
+						'relatedIls' => ['carlx'],
 					],
 					'specifiedPaymentBranchCode' => [
 						'property' => 'specifiedPaymentBranchCode',
@@ -2951,6 +3010,7 @@ class Library extends DataObject {
 						'hideInLists' => true,
 						'default' => '',
 						'maxLength' => 6,
+						'relatedIls' => ['carlx'],
 					],
 				],
 
@@ -3041,6 +3101,14 @@ class Library extends DataObject {
 						'description' => 'Turn on to allow Aspen Discovery to replace search terms that have no results if the current search term looks like a misspelling.',
 						'hideInLists' => true,
 						'default' => true,
+					],
+					'allowAutomaticFaceting' => [
+						'property' => 'allowAutomaticFaceting',
+						'type' => 'checkbox',
+						'label' => 'Allow Facets to be applied to searches automatically',
+						'description' => "This allows facets to be automatically applied to Keyword Searches to better represent the context of a user's search.",
+						'hideInLists' => true,
+						'default' => false,
 					],
 
 					'searchBoxSection' => [
@@ -3606,6 +3674,7 @@ class Library extends DataObject {
 					'Administer Course Reserves',
 					'Library ILS Connection',
 				],
+				'relatedIls' => ['koha', 'symphony'],
 				'properties' => [
 					'enableCourseReserves' => [
 						'property' => 'enableCourseReserves',
@@ -3720,6 +3789,7 @@ class Library extends DataObject {
 						'storeDb' => true,
 						'canAddNew' => true,
 						'canDelete' => true,
+						'relatedIls' => ['koha'],
 					],
 
 					'innReachSection' => [
@@ -4494,6 +4564,7 @@ class Library extends DataObject {
 		$hasCourseReserves = false;
 		$hasScoping = false;
 		$isKoha = false;
+		$isCarlX = false;
 		foreach (UserAccount::getAccountProfiles() as $accountProfileInfo) {
 			/** @var AccountProfile $accountProfile */
 			$accountProfile = $accountProfileInfo['accountProfile'];
@@ -4502,6 +4573,8 @@ class Library extends DataObject {
 				$hasScoping = true;
 			} elseif ($accountProfile->ils == 'koha') {
 				$isKoha = true;
+			} elseif ($accountProfile->ils == 'carlx') {
+				$isCarlX = true;
 			}
 		}
 		if (!$hasScoping) {
@@ -4521,6 +4594,9 @@ class Library extends DataObject {
 		} else {
 			unset($structure['ilsSection']['properties']['selfRegistrationSection']['properties']['bypassReviewQueueWhenUpdatingProfile']);
 			unset($structure['holidaysSection']['properties']['allowUpdatingHolidaysFromILS']);
+		}
+		if (!$isCarlX) {
+			unset($structure['ilsSection']['properties']['userProfileSection']['properties']['enableThirdPartySMSNotifications']);
 		}
 		//TODO: This will eventually need to be enabled/disabled by the library, it is currently off for everyone
 		if (true) {

@@ -493,9 +493,9 @@ class UInterface extends Smarty {
 				$this->assign('secondaryForegroundColor', $primaryTheme->secondaryForegroundColor);
 				$this->assign('tertiaryBackgroundColor', $primaryTheme->tertiaryBackgroundColor);
 				$this->assign('tertiaryForegroundColor', $primaryTheme->tertiaryForegroundColor);
-				$this->assign('primaryButtonBackgroundColor', $primaryTheme->primaryButtonBackgroundColor);
-				$this->assign('primaryButtonForegroundColor', $primaryTheme->primaryButtonForegroundColor);
+				$this->assign('linkColor', $primaryTheme->linkColor);
 				$this->assign('bodyFont', $primaryTheme->bodyFont);
+				$this->assign('isDarkColorScheme', $primaryTheme->isDarkColorScheme);
 			}
 		} catch (PDOException $e) {
 			global $logger;
@@ -861,10 +861,12 @@ class UInterface extends Smarty {
 			try {
 				require_once ROOT_DIR . '/sys/SystemVariables.php';
 				$systemVariables = SystemVariables::getSystemVariables();
-				if ($systemVariables != false) {
+				if ($systemVariables) {
 					$this->assign('useHtmlEditorRatherThanMarkdown', $systemVariables->useHtmlEditorRatherThanMarkdown);
+					$this->assign('useOriginalCoverUrls', $systemVariables->useOriginalCoverUrls);
 				} else {
 					$this->assign('useHtmlEditorRatherThanMarkdown', 0);
+					$this->assign('useOriginalCoverUrls', 0);
 				}
 			} catch (Exception $e) {
 				//This happens prior to the table being created
@@ -938,6 +940,9 @@ class UInterface extends Smarty {
 			$loadRecaptcha = true;
 		}
 		$this->assign('loadRecaptcha', $loadRecaptcha);
+
+		$printInterface = isset($_REQUEST['print']) ? filter_var($_REQUEST['print'], FILTER_VALIDATE_BOOLEAN) : false;
+		$this->assign('printInterface', $printInterface);
 	}
 
 	/**
@@ -1139,9 +1144,9 @@ class UInterface extends Smarty {
 			$this->assign('secondaryForegroundColor', $primaryTheme->secondaryForegroundColor);
 			$this->assign('tertiaryBackgroundColor', $primaryTheme->tertiaryBackgroundColor);
 			$this->assign('tertiaryForegroundColor', $primaryTheme->tertiaryForegroundColor);
-			$this->assign('primaryButtonBackgroundColor', $primaryTheme->primaryButtonBackgroundColor);
-			$this->assign('primaryButtonForegroundColor', $primaryTheme->primaryButtonForegroundColor);
+			$this->assign('linkColor', $primaryTheme->linkColor);
 			$this->assign('bodyFont', $primaryTheme->bodyFont);
+			$this->assign('isDarkColorScheme', $primaryTheme->isDarkColorScheme);
 		}
 	}
 }

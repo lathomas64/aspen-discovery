@@ -5,7 +5,6 @@ class SystemVariables extends DataObject {
 	public $__table = 'system_variables';
 	public $id;
 	public $errorEmail;
-	public $ticketEmail;
 	public $searchErrorEmail;
 	public $loadCoversFrom020z;
 	public $currencyCode;
@@ -46,6 +45,8 @@ class SystemVariables extends DataObject {
 	public $lidaGitHubRepository;
 	/** @noinspection PhpUnused */
 	public $numBoundlessSettingsToProcessInParallel;
+	/** @noinspection PhpUnused */
+	public $removeTheWordSeriesFromEndOfSeries;
 	public $disable_user_agent_logging;
 	public $logFrequentCrons;
 
@@ -92,13 +93,6 @@ class SystemVariables extends DataObject {
 				'type' => 'text',
 				'label' => 'Error Email Address',
 				'description' => 'Email Address to send errors to',
-				'maxLength' => 128,
-			],
-			'ticketEmail' => [
-				'property' => 'ticketEmail',
-				'type' => 'text',
-				'label' => 'Ticket Email Address',
-				'description' => 'Email Address to send tickets from administrators to',
 				'maxLength' => 128,
 			],
 			'searchErrorEmail' => [
@@ -224,7 +218,14 @@ class SystemVariables extends DataObject {
 						'label' => 'Number of Boundless Settings to process in parallel',
 						'description' => 'Allows multiple Boundless Settings to be processed in parallel to improve the speed of indexing, but this must be balanced against the performance of your server.',
 						'default' => 1,
-					]
+					],
+					'removeTheWordSeriesFromEndOfSeries' => [
+						'property' => 'removeTheWordSeriesFromEndOfSeries',
+						'type' => 'checkbox',
+						'label' => 'Remove the word "series" from the end of series',
+						'description' => 'Whether to remove the word "series" from the end of series names',
+						'default' => true,
+					],
 				],
 			],
 

@@ -400,13 +400,18 @@ class Record_AJAX extends Action {
 				$selectedVariationId = $_REQUEST['variationId'];
 			}
 
+			$promptForEdition = (isset($_REQUEST['promptForEdition']) && $_REQUEST['promptForEdition'] === "true");
+			if ($user->rememberHoldPromptForEdition) {
+				$promptForEdition = false;
+			}
+
 			$marcRecord = new MarcRecordDriver($id);
 
 			require_once ROOT_DIR . '/sys/Account/User.php';
 			$isOnHold = $user->isRecordOnHold($recordSource, $id);
 			$interface->assign('isOnHold', $isOnHold);
 
-			if (!$this->setupHoldForm($recordSource, $rememberHoldPickupLocation, $marcRecord, $locations)) {
+			if (!$this->setupHoldForm($recordSource, $rememberHoldPickupLocation, $marcRecord, $locations, $selectedVariationId, $promptForEdition)) {
 				return [
 					'holdFormBypassed' => false,
 					'title' => translate([
@@ -428,16 +433,7 @@ class Record_AJAX extends Action {
 			$items = $marcRecord->getCopies();
 			//sort things alphabetically and newest first for periodicals/serials
 			if ($marcRecord->isPeriodical()){
-				$sorter = function ($a, $b){
-					if ($a['shelfLocation'] == $b['shelfLocation']) {
-						if ($a['callNumber'] == $b['callNumber']) {
-							return 0;
-						}
-						return strnatcasecmp($b['callNumber'], $a['callNumber']);
-					}
-					return strnatcasecmp($a['shelfLocation'], $b['shelfLocation']);
-				};
-				uasort($items, $sorter);
+				$items = sortPeriodicalItemsByShelfLocationAndCallNumber($items);
 			} else {
 				array_multisort(array_column($items, 'description'), SORT_NATURAL, $items);
 			}
@@ -629,7 +625,7 @@ class Record_AJAX extends Action {
 				} else {
 					$interface->assign('whileYouWaitTitles', []);
 					if (isset($results['items'])) {
-						$results = $this->getItemHoldForm($user->_homeLocationCode, $results, $shortId, $user);
+						$results = $this->getItemHoldForm($user->getPickupLocationCode(), $results, $shortId, $user);
 						$results['holdFormBypassed'] = true;
 					}
 				}
@@ -715,7 +711,7 @@ class Record_AJAX extends Action {
 					'isPublicFacing' => true,
 				]),
 				'modalBody' => $interface->fetch('Record/hold-select-edition-popup.tpl'),
-				'modalButtons' => '<a href="#" class="btn btn-primary" onclick="return AspenDiscovery.Record.showPlaceHold(\'Record\', \'' . $recordSource . '\', \'' . $marcRecord->getId() . '\');">No, place a hold on this edition</a>',
+				'modalButtons' => '<a href="#" class="btn btn-primary" onclick="return AspenDiscovery.Record.showPlaceHold(\'Record\', \'' . $recordSource . '\', \'' . $marcRecord->getId() . '\', \'\', \'\', this);">No, place a hold on this edition</a>',
 			];
 		} else {
 			$results = [
@@ -747,7 +743,9 @@ class Record_AJAX extends Action {
 
 			list($interLibraryLoanType, $treatHoldAsInterLibraryLoanRequest, $homeLocation, $holdGroups) = $marcRecord->getInterLibraryLoanIntegrationInformation($relatedRecord, 'any');
 
-			if (!$this->setupHoldForm($recordSource, $rememberHoldPickupLocation, $marcRecord, $locations)) {
+			$promptForEdition = (isset($_REQUEST['promptForEdition']) && $_REQUEST['promptForEdition'] === "true");
+
+			if (!$this->setupHoldForm($recordSource, $rememberHoldPickupLocation, $marcRecord, $locations, -1, $promptForEdition)) {
 				return [
 					'holdFormBypassed' => false,
 					'title' => 'Unable to place hold',
@@ -756,12 +754,18 @@ class Record_AJAX extends Action {
 				];
 			}
 
-			// Get a list of volumes with unsuppressed items for the record.
+			// Get a list of volumes with unsuppressed, holdable items for the record's variations.
 			$volumeData = [];
-			$unsuppressedVolumeData = $relatedRecord->getUnsuppressedVolumeData();
-			foreach ($unsuppressedVolumeData as $volumeInfo) {
-				$volumeData[$volumeInfo->volumeId] = clone($volumeInfo);
-				$volumeData[$volumeInfo->volumeId]->setHasLocalItems(false);
+			foreach ($relatedRecord->recordVariations as $variation) {
+				foreach ($variation->getRecords() as $record) {
+					$unsuppressedVolumeData = $record->getUnsuppressedVolumeData(true);
+					foreach ($unsuppressedVolumeData as $volumeInfo) {
+						if (!isset($volumeData[$volumeInfo->volumeId])) {
+							$volumeData[$volumeInfo->volumeId] = clone($volumeInfo);
+							$volumeData[$volumeInfo->volumeId]->setHasLocalItems(false);
+						}
+					}
+				}
 			}
 
 			$numItemsWithVolumes = 0;
@@ -780,6 +784,19 @@ class Record_AJAX extends Action {
 										if ($item->libraryOwned || $item->locallyOwned) {
 											$volumeData[$item->volumeId]->setHasLocalItems(true);
 										}
+									}
+									foreach ($variation->getRelatedRecords() as $edition) {
+										$editionId = $edition->id;
+										$plainEdition = (object)get_object_vars($edition);
+										$volumeData[$item->volumeId]->setEdition($editionId, $plainEdition);
+										$status = $interface->fetch('GroupedWork/statusIndicator.tpl', [
+											'statusInformation' => $record->getStatusInformation(),
+											'viewingIndividualRecord' => 1
+										]);
+										$coverUrl = $record->getBookcoverUrl('small');
+
+										$volumeData[$item->volumeId]->setEditionStatus($editionId, $status);
+										$volumeData[$item->volumeId]->setEditionCover($editionId, $coverUrl);
 									}
 									$numItemsWithVolumes++;
 								}
@@ -840,32 +857,66 @@ class Record_AJAX extends Action {
 			unset($volumeDataDB);
 
 			//Sort the volumes so locally owned volumes are shown first
-			$volumeSorter = function (IlsVolumeInfo $a, IlsVolumeInfo $b) {
-				if ($a->hasLocalItems() && !$b->hasLocalItems()) {
+			$isPeriodical = $marcRecord->isPeriodical();
+			global $library;
+			$showVolumesWithLocalCopiesFirst = $library->showVolumesWithLocalCopiesFirst;
+			$volumeSorter = function (IlsVolumeInfo $a, IlsVolumeInfo $b) use ($isPeriodical, $showVolumesWithLocalCopiesFirst) {
+				if ($showVolumesWithLocalCopiesFirst && ($a->hasLocalItems() && !$b->hasLocalItems())) {
 					return -1;
-				} elseif ($b->hasLocalItems() && !$a->hasLocalItems()) {
+				} elseif ($showVolumesWithLocalCopiesFirst && ($b->hasLocalItems() && !$a->hasLocalItems())) {
 					return 1;
 				} else {
 					if ($a->displayOrder > $b->displayOrder) {
-						return 1;
+						return $isPeriodical ? -1 : 1;
 					} elseif ($b->displayOrder > $a->displayOrder) {
-						return -1;
+						return $isPeriodical ? 1: -1;
 					} else {
-						return 0;
+						require_once ROOT_DIR . '/sys/Utils/GroupingUtils.php';
+						if ($isPeriodical) {
+							$dateA = getSortableDate($a->displayLabel);
+							$dateB = getSortableDate($b->displayLabel);
+							if (is_null($dateA) && is_null($dateB)) {
+								//No date found, just compare the call numbers
+								return strnatcasecmp($b->displayLabel, $a->displayLabel);
+							}elseif (is_null($dateA)) {
+								return 1;
+							}elseif (is_null($dateB)) {
+								return -1;
+							}else{
+								return $dateB <=> $dateA;
+							}
+						}else{
+							return strnatcasecmp($a->displayLabel, $b->displayLabel);
+						}
 					}
 				}
 			};
-			global $library;
-			if ($library->showVolumesWithLocalCopiesFirst) {
-				uasort($volumeData, $volumeSorter);
-			}
+
+			uasort($volumeData, $volumeSorter);
 
 			$interface->assign('volumes', $volumeData);
+
+			$rememberEditionSelection = false;
+			$holdPromptForEditions = $library->holdPromptForEditions;
+
+			if ($holdPromptForEditions > 0) {
+				$user = UserAccount::getLoggedInUser();
+				if ($user->holdPromptForEdition !== $holdPromptForEditions && $user->rememberHoldPromptForEdition) {
+					$holdPromptForEditions = $user->holdPromptForEdition;
+				}
+				$rememberEditionSelection = true;
+				if ($user->rememberHoldPromptForEdition === 0) {
+					$rememberEditionSelection = false;
+				}
+			}
+
+			$interface->assign('holdPromptForEditions', $holdPromptForEditions);
+			$interface->assign('rememberEditionSelection', $rememberEditionSelection);
 
 			$results = [
 				'title' => 'Select a volume to place a hold on',
 				'modalBody' => $interface->fetch('Record/hold-select-volume-popup.tpl'),
-				'modalButtons' => '<a href="#" class="btn btn-primary" onclick="return AspenDiscovery.Record.placeVolumeHold(\'Record\', \'' . $recordSource . '\', \'' . $id . '\');">' . "<i class='fas fa-spinner fa-spin hidden' role='status' aria-hidden='true'></i>&nbsp;" . translate([
+				'modalButtons' => '<a href="#" class="btn btn-primary" onclick="return AspenDiscovery.Record.placeVolumeHold(this);">' . "<i class='fas fa-spinner fa-spin hidden' role='status' aria-hidden='true'></i>&nbsp;" . translate([
 						'text' => 'Place Hold',
 						'isPublicFacing' => true,
 					]) . '</a>',
@@ -935,7 +986,7 @@ class Record_AJAX extends Action {
 					$location = new Location();
 					$userPickupLocations = $location->getPickupBranches($user);
 					foreach ($userPickupLocations as $tmpLocation) {
-						if ($tmpLocation->code == $pickupBranch) {
+						if (isset($tmpLocation->code) && $tmpLocation->code == $pickupBranch) {
 							$patron = $user;
 							break;
 						}
@@ -997,6 +1048,31 @@ class Record_AJAX extends Action {
 						} else {
 							$nnaDate = time() + $library->defaultNotNeededAfterDays * 24 * 60 * 60;
 							$cancelDate = date('Y-m-d', $nnaDate);
+						}
+					}
+
+					$promptForEdition = 0;
+					$placeHoldOnEdition = 0;
+					if (isset($_REQUEST['promptForEdition'])) {
+						$promptForEdition = (int)$_REQUEST['promptForEdition'];
+						$placeHoldOnEdition = (int)$_REQUEST['placeHoldOnEdition'];
+						if ($promptForEdition > 0 && $placeHoldOnEdition > 1) {
+							//Placing a hold on a specific edition
+							$recordId = $_REQUEST['selectedEdition'];
+							if (strpos($recordId, ':') > 0) {
+								[
+									,
+									$shortId,
+								] = explode(':', $recordId, 2);
+							} else {
+								$shortId = $recordId;
+							}
+						}else{
+							//Placing a hold on the suggested edition
+							$rememberUserEditionPreference = (bool)$_REQUEST['rememberUserEditionPreference'];
+							if ($rememberUserEditionPreference !== $user->rememberHoldPromptForEdition) {
+								$user->setRememberHoldPromptForEdition($rememberUserEditionPreference);
+							}
 						}
 					}
 
@@ -1785,9 +1861,10 @@ class Record_AJAX extends Action {
 	 * @param bool $rememberHoldPickupLocation
 	 * @param MarcRecordDriver $marcRecord
 	 * @param Location[] $locations
+	 * @param bool|null $promptForEdition
 	 * @return bool
 	 */
-	function setupHoldForm(string $recordSource, ?bool &$rememberHoldPickupLocation, MarcRecordDriver $marcRecord, ?array &$locations): bool {
+	function setupHoldForm(string $recordSource, ?bool &$rememberHoldPickupLocation, MarcRecordDriver $marcRecord, ?array &$locations, $selectedVariationId, ?bool $promptForEdition): bool {
 		global $interface;
 		$user = UserAccount::getLoggedInUser();
 		if ($user->getCatalogDriver() == null) {
@@ -1826,8 +1903,28 @@ class Record_AJAX extends Action {
 		}
 		$interface->assign('linkedUsers', $linkedUsers);
 
+		global $library;
+		$rememberEditionSelection = false;
+		$holdPromptForEditions = $library->holdPromptForEditions;
+
+		//TODO: Combine this with the new prompt for edition selector
+		if ($holdPromptForEditions > 0) {
+			if ($user->holdPromptForEdition !== $holdPromptForEditions && $user->rememberHoldPromptForEdition) {
+				$holdPromptForEditions = $user->holdPromptForEdition;
+			}
+			$rememberEditionSelection = true;
+			if ($user->rememberHoldPromptForEdition === 0) {
+				$rememberEditionSelection = false;
+			}
+		}
+
+		$interface->assign('holdPromptForEditions', $holdPromptForEditions);
+		$interface->assign('rememberEditionSelection', $rememberEditionSelection);
+		$interface->assign('promptForEdition', $promptForEdition);
+
 		//Check to see if the record must be picked up at the holding branch
 		$relatedRecord = $marcRecord->getGroupedWorkDriver()->getRelatedRecord($marcRecord->getIdWithSource());
+		$interface->assign('relatedRecord', $relatedRecord);
 		$pickupAt = $relatedRecord->getHoldPickupSetting();
 		$pickupSublocations = [];
 		//1 = restrict to owning location
@@ -1867,77 +1964,69 @@ class Record_AJAX extends Action {
 						return true;
 					}
 					foreach ($validLocationCodesFromILS as $validCode) {
-						if (strpos($validCode, $location->code) === 0) {
+						if (str_starts_with($validCode, $location->code)) {
 							return true;
 						}
 					}
 					return false;
 				});
-			} else {
+			} elseif (empty($getPickupLocationsFromILS['useDefaultLocationFiltering'])) {
 				$locations = [];
+			}
+		}
+
+		//Check to see if the patron's preferred pickup location and sublocation (if applicable) are valid.
+		// do this regardless of if "allow remembering pickup location" is on since we use the check for other messages
+		$preferredPickupLocationIsValid = false;
+		$preferredPickupLocation = null;
+		$preferredPickupSublocationIsValid = false;
+		foreach ($locations as $location) {
+			if (is_object($location) && ($location->locationId == $user->pickupLocationId)) {
+				$preferredPickupLocationIsValid = true;
+				$preferredPickupLocation = $location;
+				break;
+			}
+		}
+
+		$preferredPickupSublocationIsValid = true;
+		if ($preferredPickupLocationIsValid) {
+			//The preferred location is valid, check to see if sublocations are in use and if so if the preferred pickup area is valid
+			$preferredSublocationsAtPreferredLocation = $preferredPickupLocation->getPickupSublocations($user);
+			if (count($preferredSublocationsAtPreferredLocation) > 1) {
+				$preferredPickupSublocationIsValid = false;
+				require_once ROOT_DIR . '/sys/LibraryLocation/Sublocation.php';
+				require_once ROOT_DIR . '/sys/LibraryLocation/SublocationPatronType.php';
+				$patronType = $user->getPTypeObj();
+				$sublocationLookup = new Sublocation();
+				$sublocationLookup->id = $user->pickupSublocationId;
+				$sublocationLookup->isValidHoldPickupAreaILS = 1;
+				$sublocationLookup->isValidHoldPickupAreaAspen = 1;
+				if ($sublocationLookup->find(true)) {
+					$sublocationPType = new SublocationPatronType();
+					$sublocationPType->patronTypeId = $patronType->id;
+					$sublocationPType->sublocationId = $sublocationLookup->id;
+					if ($sublocationPType->find(true)) {
+						$preferredPickupSublocationIsValid = true;
+					}
+				}
 			}
 		}
 
 		global $library;
 		//Check to see if we can bypass the holds popup and just place the hold
-		if (!$multipleAccountPickupLocations && !$promptForHoldNotifications && $library->allowRememberPickupLocation) {
+		if (!$multipleAccountPickupLocations && !$promptForHoldNotifications && $library->allowRememberPickupLocation && !$holdPromptForEditions) {
 			//If the patron's preferred pickup location is not valid, then force them to pick a new location
-			$preferredPickupLocationIsValid = false;
-			$preferredPickupLocation = null;
-			$preferredPickupSublocationIsValid = false;
-			foreach ($locations as $location) {
-				if (is_object($location) && ($location->locationId == $user->pickupLocationId)) {
-					$preferredPickupLocationIsValid = true;
-					$preferredPickupLocation = $location;
-					break;
-				}
-			}
-
-			$preferredPickupSublocationIsValid = true;
-			if ($preferredPickupLocationIsValid) {
-				//The preferred location is valid, check to see if sublocations are in use and if so if the preferred pickup area is valid
-				$preferredSublocationsAtPreferredLocation = $preferredPickupLocation->getPickupSublocations($user);
-				if (count($preferredSublocationsAtPreferredLocation) > 1) {
-					$preferredPickupSublocationIsValid = false;
-					require_once ROOT_DIR . '/sys/LibraryLocation/Sublocation.php';
-					require_once ROOT_DIR . '/sys/LibraryLocation/SublocationPatronType.php';
-					$patronType = $user->getPTypeObj();
-					$sublocationLookup = new Sublocation();
-					$sublocationLookup->id = $user->pickupSublocationId;
-					$sublocationLookup->isValidHoldPickupAreaILS = 1;
-					$sublocationLookup->isValidHoldPickupAreaAspen = 1;
-					if ($sublocationLookup->find(true)) {
-						$sublocationPType = new SublocationPatronType();
-						$sublocationPType->patronTypeId = $patronType->id;
-						$sublocationPType->sublocationId = $sublocationLookup->id;
-						if ($sublocationPType->find(true)) {
-							$preferredPickupSublocationIsValid = true;
-						}
-					}
-				}
-			}
-
 			if ($preferredPickupLocationIsValid && $preferredPickupSublocationIsValid) {
 				$rememberHoldPickupLocation = $user->rememberHoldPickupLocation;
 			} else {
 				$rememberHoldPickupLocation = false;
-				$locationKeys = array_keys($locations);
-				if (!$preferredPickupLocationIsValid && count($locations) == 2 && !empty($locations[$locationKeys[1]])) {
-					$onlyValidPickupLocation = $locations[$locationKeys[1]]->code;
-					$interface->assign('pickupLocationInvalidMessage', translate([
-						'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. The item must be picked up at the following location.',
-						'isPublicFacing' => true,
-					]));
-				} elseif (!$preferredPickupLocationIsValid) {
-					$interface->assign('pickupLocationInvalidMessage', translate([
-						'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. Please select a pickup location.',
-						'isPublicFacing' => true,
-					]));
-				} elseif (!$preferredPickupSublocationIsValid) {
-					$interface->assign('pickupLocationInvalidMessage', translate([
-						'text' => 'Your preferred pickup area is not available for your patron type. Please select a pickup location.',
-						'isPublicFacing' => true,
-					]));
+				if (!$preferredPickupSublocationIsValid) {
+					if ($user->pickupSublocationId > 0) {
+						$interface->assign('pickupLocationInvalidMessage', translate([
+							'text' => 'Your preferred pickup area is not available for your patron type. Please select a pickup location.',
+							'isPublicFacing' => true,
+						]));
+					}
 				}
 			}
 		} else {
@@ -1956,7 +2045,81 @@ class Record_AJAX extends Action {
 			// If the Library System does not allow remembering pickup location (i.e., !$library->allowRememberPickupLocation),
 			// then no need to display a message because the patron cannot choose a preferred pickup location anyway.
 		}
+
+		$editionOptions = [];
+		if ($holdPromptForEditions > 0 && $promptForEdition) {
+			if (count($relatedRecord->recordVariations) > 1) {
+				foreach ($relatedRecord->recordVariations as $variation) {
+					if (($selectedVariationId == -1) || ($selectedVariationId == $variation->databaseId)) {
+						$formatValue = $variation->manifestation->format;
+						global $indexingProfiles;
+						$indexingProfile = $indexingProfiles[$marcRecord->getRecordType()];
+						$formatMap = $indexingProfile->formatMap;
+						//Loop through the format map /** @var FormatMapValue $formatMapValue */
+						//Check for a format with a hold type that is not 'none'
+						foreach ($formatMap as $formatMapValue) {
+							if (strcasecmp($formatMapValue->format, $formatValue) === 0) {
+								$holdType = $formatMapValue->holdType;
+								if ($holdType != 'none') {
+									$format = $formatValue;
+								}
+							}
+						}
+					}
+				}
+				//if we get no result and all hold types are 'none' just return the marc primary format
+				if (empty($format)) {
+					$format = $marcRecord->getPrimaryFormat();
+				}
+			} else {
+				$format = $marcRecord->getPrimaryFormat();
+			}
+			$relatedManifestation = null;
+			$foundManifestation = false;
+			$relatedManifestations = $marcRecord->getGroupedWorkDriver()->getRelatedManifestations();
+			foreach ($relatedManifestations as $relatedManifestation) {
+				if ($relatedManifestation->format == $format) {
+					$foundManifestation = true;
+					break;
+				}
+			}
+
+			if ($foundManifestation) {
+				$variation = null;
+				$foundVariation = false;
+				foreach ($relatedManifestation->getVariations() as $variation) {
+					if ($variation->databaseId == $selectedVariationId) {
+						$foundVariation = true;
+						break;
+					}
+				}
+
+				if ($foundVariation) {
+					$editionOptions = $variation->getRelatedRecords();
+				}
+			}
+		}
+		$interface->assign('editionOptions', $editionOptions);
+
+
+		$locationKeys = array_keys($locations);
+		$interface->assign('preferredPickupLocationIsValid', $preferredPickupLocationIsValid);
+		if (!$preferredPickupLocationIsValid && count($locations) == 2 && !empty($locations[$locationKeys[1]])) {
+			$onlyValidPickupLocation = $locations[$locationKeys[1]]->code;
+			$interface->assign('pickupLocationInvalidMessage', translate([
+				'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. The item must be picked up at the following location.',
+				'isPublicFacing' => true,
+			]));
+		} elseif (!$preferredPickupLocationIsValid) {
+			$interface->assign('pickupLocationInvalidMessage', translate([
+				'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. Please select a pickup location.',
+				'isPublicFacing' => true,
+			]));
+		}
+
 		$interface->assign('rememberHoldPickupLocation', $rememberHoldPickupLocation);
+		$interface->assign('rememberHoldPromptForEdition', $user->rememberHoldPromptForEdition);
+		$interface->assign('userHoldPromptForEditionPreference', $user->holdPromptForEdition);
 		$interface->assign('onlyValidPickupLocation', $onlyValidPickupLocation ?? null);
 
 		$interface->assign('pickupLocations', $locations);
@@ -2301,4 +2464,3 @@ class Record_AJAX extends Action {
 		return $results;
 	}
 }
-

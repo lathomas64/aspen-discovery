@@ -39,6 +39,31 @@
 		{if !empty($activeIls)}
 			<input type="hidden" name="activeIls" id="activeIls" value={$activeIls}>
 		{/if}
+		{* Preserve all context parameters for list state *}
+		{if !empty($page)}
+			<input type="hidden" name="page" value="{$page|escape}">
+		{/if}
+		{if !empty($pageSize)}
+			<input type="hidden" name="pageSize" value="{$pageSize|escape}">
+		{/if}
+		{if !empty($sort)}
+			<input type="hidden" name="sort" value="{$sort|escape}">
+		{/if}
+		{if !empty($filterType)}
+			{foreach from=$filterType item=filterTypeValue key=filterKey}
+				<input type="hidden" name="filterType[{$filterKey|escape}]" value="{$filterTypeValue|escape}">
+			{/foreach}
+		{/if}
+		{if !empty($filterValue)}
+			{foreach from=$filterValue item=filterValueValue key=filterKey}
+				<input type="hidden" name="filterValue[{$filterKey|escape}]" value="{$filterValueValue|escape}">
+			{/foreach}
+		{/if}
+		{if !empty($filterValue2)}
+			{foreach from=$filterValue2 item=filterValue2Value key=filterKey}
+				<input type="hidden" name="filterValue2[{$filterKey|escape}]" value="{$filterValue2Value|escape}">
+			{/foreach}
+		{/if}
 
 		{foreach from=$structure item=property}
 			{if is_array($property) && isset($property.property) && isset($property.type)}
@@ -136,8 +161,8 @@
 			},
 			"{/literal}{translate text="Please check your input." isAdminFacing=true inAttribute=true}{literal}"
 		);
-		$(document).ready(function(){
-			var objectEditorObject = $('#objectEditor-{/literal}{if !empty($id)}{$id}{else}-1{/if}{literal}');
+		$(() => {
+			let objectEditorObject = $('#objectEditor-{/literal}{if !empty($id)}{$id}{else}-1{/if}{literal}');
 
 			objectEditorObject.validate();
 
@@ -160,7 +185,7 @@
 					e.preventDefault();
 					var submitForm = function() {
 						shouldPrevent = false;
-						objectEditorObject.submit();
+						objectEditorObject.trigger('submit');
 					};
 					{/literal}{$onSubmissionJS}{literal};
 				}
@@ -169,19 +194,44 @@
 			{/if}
 			{literal}
 
-			$(window).bind('beforeunload', function(e){
-				if (!savingForm) {
-					// if form state change show warning box, else don't show it.
-					var objectEditorObject = $('#objectEditor-{/literal}{if !empty($id)}{$id}{else}-1{/if}{literal}');
-					if (objectEditorObject.serialize() !== objectEditorObject.data('serialize')) {
-						return "{/literal}{translate text="You have made changes to the configuration, would you like to save them before continuing?" isAdminFacing=true inAttribute=true}{literal}";
-					} else {
-						e = null;
-					}
-				}else{
-					e = null;
+			let beforeUnloadHandlerAttached = false;
+			// Attach beforeunload handler only after user interaction.
+			objectEditorObject.one('input change', 'input,select,textarea', () => {
+				if (!beforeUnloadHandlerAttached) {
+					$(window).on('beforeunload', (e) => {
+						if (!savingForm) {
+							objectEditorObject = $('#objectEditor-{/literal}{if !empty($id)}{$id}{else}-1{/if}{literal}');
+							const currentState = objectEditorObject.serialize();
+							const originalState = objectEditorObject.data('serialize');
+
+							// Also check SimpleMDE editors for changes.
+							let markdownChanged = false;
+							if (typeof AspenDiscovery !== 'undefined' && AspenDiscovery.WebBuilder && AspenDiscovery.WebBuilder.editors) {
+								Object.keys(AspenDiscovery.WebBuilder.editors).forEach(editorKey => {
+									const editor = AspenDiscovery.WebBuilder.editors[editorKey];
+									if (editor && editor.value) {
+										const currentMarkdown = editor.value();
+										const $editorKey = $('#' + editorKey);
+										const originalMarkdown = $editorKey.data('original-value') || $editorKey.val();
+										if (currentMarkdown !== originalMarkdown) {
+											markdownChanged = true;
+										}
+									}
+								});
+							}
+
+							if (currentState !== originalState || markdownChanged) {
+								// Modern browsers ignore custom text, but this is required to trigger the dialog.
+								e.preventDefault();
+								e.returnValue = '';
+							}
+						}
+					});
+					beforeUnloadHandlerAttached = true;
 				}
-			}).bind('onsubmit', function(e){
+			});
+
+			objectEditorObject.on('submit', () => {
 				savingForm = true;
 			});
 		});

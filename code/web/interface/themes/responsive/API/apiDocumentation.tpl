@@ -6,16 +6,16 @@
 {/strip}
          allow-spec-file-load="false" 
          default-schema-tab="schema" 
-         show-curl-before-try="true"
-         style="width:100%;" 
-         theme="light" 
+         allow-try="false"
+         allow-authentication="false"
          bg-color="{$bodyBackgroundColor}" 
          header-color="{$bodyBackgroundColor}" 
          regular-font="{$bodyFont}" 
          mono-font="'Consolas', monospace" 
          text-color="{$bodyTextColor}" 
-         primary-color="{$primaryButtonBackgroundColor}" 
-         nav-bg-color="{$secondaryBackgroundColor}">
+         primary-color="{$linkColor}" 
+         nav-bg-color="{$secondaryBackgroundColor}"
+         {if $isDarkColorScheme}theme="dark"{else}theme="light"{/if}>
 {strip}
             <img slot="logo" src="" alt="" />
         </rapi-doc>

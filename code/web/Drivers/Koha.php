@@ -570,6 +570,7 @@ class Koha extends AbstractIlsDriver {
 			//Check if patron is allowed to auto-renew based on circulation rules
 
 			$circulationRulesKey = "$patronType~$itemType~$checkoutBranch";
+			$rulesFound = [];
 			if (array_key_exists($circulationRulesKey, $circulationRulesForCheckouts)){
 				$circulationRulesForCheckout = $circulationRulesForCheckouts[$circulationRulesKey];
 			} else {
@@ -581,12 +582,17 @@ class Koha extends AbstractIlsDriver {
 					WHERE (categorycode IN ('$patronType', '*') OR categorycode IS NULL)
 					  AND (itemtype IN('$itemType', '*') OR itemtype is null)
 					  AND (branchcode IN ('$checkoutBranch', '*') OR branchcode IS NULL)
-					ORDER BY branchcode desc, categorycode desc, itemtype desc LIMIT 1
+					  AND rule_name like '%renew%'
+					ORDER BY branchcode desc, categorycode desc, itemtype desc
 				";
 				$circulationRulesRS = mysqli_query($this->dbConnection, $circulationRulesSql);
 				if ($circulationRulesRS !== false) {
-					$circulationRulesRow = $circulationRulesRS->fetch_assoc();
-					$circulationRulesForCheckout[] = $circulationRulesRow;
+					while ($circulationRulesRow = $circulationRulesRS->fetch_assoc()) {
+						if (!array_key_exists($circulationRulesRow['rule_name'], $rulesFound)) {
+							$circulationRulesForCheckout[] = $circulationRulesRow;
+							$rulesFound[$circulationRulesRow['rule_name']] = $circulationRulesRow['rule_name'];
+						}
+					}
 					$circulationRulesRS->close();
 				}
 				$timer->logTime("Load circulation rules for checkout");
@@ -3855,7 +3861,9 @@ class Koha extends AbstractIlsDriver {
 						$error);
 				}
 				$result['error'] = trim($error);
-			} elseif (preg_match('%<div id="password-recovery">\s+<div class="alert alert-info">(.*?)<a href="/cgi-bin/koha/opac-main.pl">Return to the main page</a>\s+</div>\s+</div>%s', $postResults, $messageInformation)) {
+			}
+			elseif (preg_match('%<div id="password-recovery">\s*<div class="alert alert-info">\s*<p>(.*?)</p>\s*<a href="/cgi-bin/koha/opac-main.pl">Return to the main page</a>\s*</div>%s', $postResults, $messageInformation) ||
+					preg_match('%<div id="password-recovery">\s+<div class="alert alert-info">(.*?)<a href="/cgi-bin/koha/opac-main.pl">Return to the main page</a>\s+</div>\s+</div>%s', $postResults, $messageInformation)) {
 				$message = $messageInformation[1];
 				$result['success'] = true;
 				$result['message'] = translate([
@@ -3864,7 +3872,6 @@ class Koha extends AbstractIlsDriver {
 				]);
 			}
 		}
-
 		return $result;
 	}
 
@@ -4577,7 +4584,6 @@ class Koha extends AbstractIlsDriver {
 						'maxLength' => $pinValidationRules['maxLength'],
 						'onlyDigitsAllowed' => $pinValidationRules['onlyDigitsAllowed'],
 						'showConfirm' => false,
-						'required' => true,
 						'showDescription' => true,
 						'autocomplete' => false,
 					],
@@ -4590,7 +4596,6 @@ class Koha extends AbstractIlsDriver {
 						'maxLength' => $pinValidationRules['maxLength'],
 						'onlyDigitsAllowed' => $pinValidationRules['onlyDigitsAllowed'],
 						'showConfirm' => false,
-						'required' => true,
 						'showDescription' => false,
 						'autocomplete' => false,
 					],
@@ -4755,7 +4760,20 @@ class Koha extends AbstractIlsDriver {
 		global $library;
 		$result = ['success' => false,];
 
-		if (isset($_REQUEST['borrower_password'])) {
+		// Check if password is mandatory before attempting validation.
+		$this->initDatabaseConnection();
+		$sql = "SELECT value FROM systempreferences WHERE variable = 'PatronSelfRegistrationBorrowerMandatoryField';";
+		$results = mysqli_query($this->dbConnection, $sql);
+		$mandatoryFieldsValue = '';
+		if ($curRow = $results->fetch_assoc()) {
+			$mandatoryFieldsValue = $curRow['value'];
+		}
+		$results->close();
+		$requiredFields = explode('|', $mandatoryFieldsValue);
+		$requiredFields = array_flip($requiredFields);
+		$passwordIsRequired = array_key_exists('password', $requiredFields);
+
+		if (isset($_REQUEST['borrower_password']) && $passwordIsRequired) {
 			$password = $_REQUEST['borrower_password'];
 			$pinValidationRules = $this->getPasswordPinValidationRules();
 
@@ -8272,6 +8290,10 @@ class Koha extends AbstractIlsDriver {
 		return true;
 	}
 
+	public function showRenewalsRemaining(): bool {
+		return true;
+	}
+
 	public function showHoldPlacedDate(): bool {
 		return true;
 	}
@@ -8850,9 +8872,10 @@ class Koha extends AbstractIlsDriver {
 	 *
 	 * @param User $user - the user to update notifications for
 	 * @param ILSNotificationSetting $ilsNotificationSetting - the settings to base notifications on
+	 * @param ?CronLogEntry $cronLogEntry - an optional log entry to record information to
 	 * @return array
 	 */
-	public function updateAccountNotifications(User $user, ILSNotificationSetting $ilsNotificationSetting): array {
+	public function updateAccountNotifications(User $user, ILSNotificationSetting $ilsNotificationSetting, ?CronLogEntry $cronLogEntry): array {
 		$this->initDatabaseConnection();
 
 		//Get a list of all messages that have been queued in the last 24 hours for the user

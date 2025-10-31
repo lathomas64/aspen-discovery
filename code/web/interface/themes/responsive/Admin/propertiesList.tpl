@@ -70,7 +70,7 @@
 									</div>
 
 									<div class="col-tn-6 col-xs-6 text-right" style="padding-top: 10px; padding-bottom: 10px; right:10px;">
-										<button class="btn btn-default btn-sm" type="submit" id="applyFilterButton" onclick="$('#objectAction').val('list');$('#propertiesListForm').submit();"><i class="fas fa-filter"></i> {translate text="Apply Filters" isAdminFacing=true}</button>
+										<button class="btn btn-default btn-sm" type="submit" id="applyFilterButton" onclick="$('#objectAction').val('list');$('#propertiesListForm').trigger('submit');"><i class="fas fa-filter"></i> {translate text="Apply Filters" isAdminFacing=true}</button>
 									</div>
 								</div>
 							</div>
@@ -85,7 +85,7 @@
 		<table class="adminTable table table-striped table-condensed smallText table-sticky" id="adminTable" aria-label="List of Objects">
 			<thead>
 				<tr>
-					{if $canCompare || $canBatchUpdate || $canExportToCSV}
+					{if $canCompare || $canBatchUpdate || $canExportToCSV || $canBatchDelete}
 						<th>{translate text='Select' isAdminFacing=true}</th>
 					{/if}
 					{foreach from=$structure item=property key=id}
@@ -101,7 +101,7 @@
 					{foreach from=$dataList item=dataItem key=id}
 						{assign var=canEdit value=$dataItem->canActiveUserEdit()}
 					<tr class='{cycle values="odd,even"} {if !empty($dataItem->class)}{$dataItem->class}{/if}'>
-						{if $canCompare || $canBatchUpdate || $canExportToCSV}
+						{if $canCompare || $canBatchUpdate || $canExportToCSV || $canBatchDelete}
 							<td><input type="checkbox" class="selectedObject" name="selectedObject[{$id}]" aria-label="Select Item {$id}"> </td>
 						{/if}
 						{foreach from=$structure item=property}
@@ -112,7 +112,7 @@
 								{if $property.type == 'label'}
 									{if empty($dataItem->class) || $dataItem->class != 'objectDeleted'}
 										{if $dataItem->canActiveUserEdit()}
-											{if $propName == $dataItem->getPrimaryKey()}<a class="btn btn-default btn-sm" href='/{$module}/{$toolName}?objectAction=edit&amp;id={$id}'>
+											{if $propName == $dataItem->getPrimaryKey()}<a class="btn btn-default btn-sm" href='/{$module}/{$toolName}?objectAction=edit&amp;id={$id}{$contextParams}'>
 											<i class="fas fa-pencil-alt fa-xs" style="padding-right: .5em"></i>{/if}
 											{if empty($propValue)}
 												{translate text="Not Set" isAdminFacing=true}
@@ -199,7 +199,7 @@
 							<td>
 								<div class="btn-group-vertical">
 								{if $dataItem->canActiveUserEdit()}
-									<a href='/{$module}/{$toolName}?objectAction=edit&amp;id={$id}' class="btn btn-default btn-sm" aria-label="Edit Item {$id}"><i class="fas fa-pencil-alt"></i> {translate text="Edit" isAdminFacing=true}</a>
+									<a href='/{$module}/{$toolName}?objectAction=edit&amp;id={$id}{$contextParams}' class="btn btn-default btn-sm" aria-label="Edit Item {$id}"><i class="fas fa-pencil-alt"></i> {translate text="Edit" isAdminFacing=true}</a>
 								{/if}
 								{if $dataItem->getAdditionalListActions()}
 									{foreach from=$dataItem->getAdditionalListActions() item=action}
@@ -226,7 +226,7 @@
 
 	{if !empty($pageLinks.all)}<div class="text-center">{$pageLinks.all}</div>{/if}
 
-	{if $canCompare || $canBatchUpdate || $canExportToCSV}
+	{if $canCompare || $canBatchUpdate || $canExportToCSV || $canBatchDelete}
 		<div class="btn-group">
 			<button type='button' class="btn btn-default" onclick="$('.selectedObject').prop( 'checked', true );return false">{translate text='Select All' isAdminFacing=true}</button>
 			<button type='button' class="btn btn-default" onclick="$('.selectedObject').prop( 'checked', false );return false">{translate text='Deselect All' isAdminFacing=true}</button>
@@ -316,3 +316,11 @@
 	{/literal}
 </script>
 {/if}
+
+<script type="text/javascript">
+	{literal}
+	$(() => {
+		AspenDiscovery.Admin.initializeScrollPositioning();
+	});
+	{/literal}
+</script>

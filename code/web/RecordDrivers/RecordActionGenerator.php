@@ -8,9 +8,10 @@ function getUntitledVolumeHoldAction($module, $source, $id, $variationId) : arra
 		]),
 		'url' => '',
 		'id' => "actionButton$id",
-		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '~untitled~', '$variationId');",
+		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '~untitled~', '$variationId', this);",
 		'requireLogin' => false,
 		'type' => 'ils_hold',
+		'subtype' => 'untitled_volume_ils_hold',
 	];
 }
 //Regular ILS holds
@@ -22,9 +23,10 @@ function getHoldRequestAction($module, $source, $id, $variationId) : array {
 		]),
 		'url' => '',
 		'id' => "actionButton$id",
-		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '', '$variationId');",
+		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '', '$variationId', this);",
 		'requireLogin' => false,
 		'type' => 'ils_hold',
+		'subtype' => 'standard_ils_hold',
 	];
 }
 
@@ -37,9 +39,10 @@ function getSpecificVolumeHoldAction($module, $source, $id, $volumeInfo) : array
 		]),
 		'url' => '',
 		'id' => "actionButton$id",
-		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '{$volumeInfo['volumeId']}');",
+		'onclick' => "return AspenDiscovery.Record.showPlaceHold('$module', '$source', '$id', '{$volumeInfo['volumeId']}', '', this);",
 		'requireLogin' => false,
 		'type' => 'ils_hold',
+		'subtype' => 'single_volume_ils_hold',
 		'volumeId' => $volumeInfo['volumeId'],
 		'volumeName' => $volumeInfo['volumeName'],
 	];
@@ -53,13 +56,14 @@ function getMultiVolumeHoldAction($module, $source, $id) : array {
 		]),
 		'url' => '',
 		'id' => "actionButton$id",
-		'onclick' => "return AspenDiscovery.Record.showPlaceHoldVolumes('$module', '$source', '$id');",
+		'onclick' => "return AspenDiscovery.Record.showPlaceHoldVolumes('$module', '$source', '$id', this);",
 		'requireLogin' => false,
 		'type' => 'ils_hold',
+		'subtype' => 'multi_volume_ils_hold',
 	];
 }
 
-function getMultiVolumeRequestAction($module, $source, $id, $recordDriver) : array {
+function getMultiVolumeRequestAction($module, $source, $id, $recordDriver, $hasUntitledVolumes) : array {
 	global $library;
 	$activeLibrary = $library;
 	if (UserAccount::isLoggedIn()) {
@@ -67,10 +71,10 @@ function getMultiVolumeRequestAction($module, $source, $id, $recordDriver) : arr
 		$activeLibrary = $user->getHomeLibrary();
 	}
 
-	if ($activeLibrary->enableMaterialsRequest != 0) {
+	if ($activeLibrary->enableMaterialsRequest != 0 && !$hasUntitledVolumes) {
 		return getRedirectToMaterialsRequestAction($activeLibrary, $id, null, $recordDriver);
 	}else {
-		if (!empty($activeLibrary->localIllEmail)) {
+		if (!empty($activeLibrary->localIllEmail) && !$hasUntitledVolumes) {
 			$redirectParams =[
 				'title' => $recordDriver->getTitle(),
 				'author' => $recordDriver->getPrimaryAuthor() ?? '',
@@ -280,7 +284,7 @@ function getLocalIllRequestAction($module, $source, $id) : array {
 	];
 }
 
-function getNoVolumesCanBeRequestedAction($module, $source, $id) : array {
+function getNoVolumesCanBeRequestedAction($id) : array {
 	//Check to see if the user can do local ILL by PType
 	if (UserAccount::isLoggedIn()) {
 		$user = UserAccount::getActiveUserObj();

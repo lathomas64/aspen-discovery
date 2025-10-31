@@ -54,13 +54,7 @@
 						{/foreach}
 					{/if}
 					{assign var="onlyOnePickupSublocation" value=false}
-{*					{if count($pickupSublocations) == 1}*}
-{*						{foreach from=$pickupSublocations item=firstSublocation}*}
-{*							{if !is_string($firstSublocation) && ($firstSublocation->code == $user->getPickupSublocationCode())}*}
-{*								{assign var="onlyOnePickupSublocation" value=true}*}
-{*							{/if}*}
-{*						{/foreach}*}
-{*					{/if}*}
+
 					{if ($rememberHoldPickupLocation && $allowRememberPickupLocation) || $onlyOnePickupLocation}
 						<input type="hidden" name="pickupBranch" id="pickupBranch" value="{$user->getPickupLocationCode()}">
 						{if ($rememberHoldPickupLocation && $allowRememberPickupLocation)}
@@ -69,9 +63,6 @@
 							<input type="hidden" name="rememberHoldPickupLocation" id="rememberHoldPickupLocation" value="off">
 						{/if}
 
-{*						{if $onlyOnePickupSublocation}*}
-{*							<input type="hidden" name="pickupSublocation" id="pickupSublocation" value="{$user->getPickupSublocationCode()}">*}
-{*						{/if}*}
 						<input type="hidden" name="user" id="user" value="{$user->id}">
 					{else}
 						{if !empty($pickupLocationInvalidMessage)}
@@ -88,7 +79,7 @@
 											{if is_string($location)}
 												<option value="undefined">{$location}</option>
 											{else}
-												<option value="{$location->code}" data-users="[{implode subject=$location->getPickupUsers() glue=','}]" {if $location->code == $user->getPickupLocationCode() || $location->code == $onlyValidPickupLocation}selected{/if}>{$location->displayName|escape}</option>
+												<option value="{$location->code}" data-users="[{implode subject=$location->getPickupUsers() glue=','}]" {if $location->code == $user->getPickupLocationCode() || ($location->code == $onlyValidPickupLocation && $preferredPickupLocationIsValid)}selected{/if}>{$location->displayName|escape}</option>
 											{/if}
 										{/foreach}
 									{else}
@@ -127,7 +118,7 @@
 								{$linkedUser->id}: "{$linkedUser->displayName|escape|escape:javascript} - {$linkedUser->getHomeLibrarySystemName()|escape|escape:javascript}",
 								{/foreach}
 								{rdelim};
-								$('#pickupBranch').change(function(){ldelim}
+								$('#pickupBranch').on('change', function(){ldelim}
 									var users = $('option:selected', this).data('users');
 									var options = '';
 									if (typeof(users) !== "undefined") {ldelim}
@@ -136,7 +127,7 @@
 										{rdelim});
 									{rdelim}
 									$('#userOption select').html(options);
-								{rdelim}).change(); /* trigger on initial load */
+								{rdelim}).trigger('change'); /* trigger on initial load */
 							{rdelim});
 						</script>
 					{/if}
@@ -194,6 +185,66 @@
 							</div>
 						</div>
 					{/if}
+					<input type="hidden" name="holdPromptForEditions" id="holdPromptForEditions" value="{$holdPromptForEditions}">
+					{if $holdPromptForEditions > 0 && count($editionOptions) > 0 && $promptForEdition}
+						<div id="editionSelectionOptions" class="form-group">
+							<label class="control-label" for="selectedEditionOption">{translate text="Do you want to place a hold on the suggested edition or a specific edition?" isPublicFacing=true}</label>
+							<select name="selectedEditionOption" id="selectedEditionOption" class="form-control"  onchange="AspenDiscovery.GroupedWork.showEditionSwiper()">
+								<option value="1" {if $holdPromptForEditions == 1}selected{/if}>{translate text="Place hold on suggested edition" isPublicFacing=true}</option>
+								<option value="2" {if $holdPromptForEditions == 2}selected{/if}>{translate text="Place hold on specific edition" isPublicFacing=true}</option>
+							</select>
+						</div>
+						<div id="editionSelectionSlider" class="horizontalSliders" {if $holdPromptForEditions == 1}style="display: none"{/if}>
+							<div class="row horizontalEditionSelector">
+								<div class="col-xs-12">
+									<div class="slider-container" role="region" id="slider-edition">
+										<div class="slider-button slider-button-prev" id="slider-prev-edition"></div>
+										<div class="slider-wrapper" role="listbox" aria-activedescendant="slide-edition-0">
+											{assign var=firstEdition value=""}
+											{foreach from=$editionOptions item=edition name=editions}
+												{if $smarty.foreach.editions.index ==0}
+													{assign var=firstEdition value=$edition->databaseId}
+												{/if}
+												{assign var=current value=$smarty.foreach.editions.index + 1}
+												<div role="option" tabindex="0" class="slider-slide horizontal-edition-option{if $smarty.foreach.editions.index == 0} active{/if}">
+													<label for="editionOption{$edition->databaseId}">
+														<div class="edition-radio">
+															<input type="radio" name="editionOption" id="editionOption{$edition->databaseId}" value="{$edition->id}" {if $smarty.foreach.editions.index == 0}checked{/if}> {translate text="Select This Edition" isPublicFacing=true}
+														</div>
+														<div class="edition-cover">
+															<img src="{$edition->getBookcoverUrl('small')}" class="img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} {$coverStyle}" alt="{translate text='Book Cover' inAttribute=true isPublicFacing=true}">
+														</div>
+														<div class="edition-data">
+															{$edition->publicationDate}. {$edition->publisher}. {$edition->physical}.<br/>
+															{include file='GroupedWork/statusIndicator.tpl' statusInformation=$relatedRecord->getStatusInformation() viewingIndividualRecord=1}
+															<span>{$current} of {count($editionOptions)}</span>
+														</div>
+													</label>
+												</div>
+											{/foreach}
+										</div>
+										<div class="slider-button slider-button-next" id="slider-next-edition"></div>
+								</div>
+									<script>
+										$(document).ready(function(){ldelim}
+											AspenDiscovery.GroupedWork.initializeHorizontalEditionSelectionSwipers();
+											$('#editionSelectionOptions').show();
+											{if $holdPromptForEditions == 2}
+												$('#editionSelectionSlider').show();
+												$('#editionSelectionOptionRemember').hide();
+											{/if}
+										{rdelim});
+									</script>
+								</div>
+							</div>
+						</div>
+						<div id="editionSelectionOptionRemember" class="form-group">
+							<label for="rememberEditionSelection" class="checkbox">
+								<input type="checkbox" name="rememberEditionSelection" id="rememberEditionSelection" {if $rememberEditionSelection}checked{/if}>
+								{translate text="Always place holds on suggested edition" isPublicFacing=true}
+							</label>
+						</div>
+					{/if}
 					{if !empty($promptForHoldNotifications)}
 						<div id="holdNotification" class="form-group">
 							{include file=$holdNotificationTemplate}
@@ -209,9 +260,9 @@
 					{/if}
 					<br>
 					{if $showLogMeOut == 1}
-					<div class="form-group">
-						<label for="autologout" class="checkbox"><input type="checkbox" name="autologout" id="autologout" {if $logMeOutDefault == true}checked="checked"{/if}> {translate text="Log me out after requesting the item." isPublicFacing=true}</label>
-					</div>
+						<div class="form-group">
+							<label for="autologout" class="checkbox"><input type="checkbox" name="autologout" id="autologout" {if $logMeOutDefault == true}checked="checked"{/if}> {translate text="Log me out after requesting the item." isPublicFacing=true}</label>
+						</div>
 					{/if}
 				</div>
 			</fieldset>

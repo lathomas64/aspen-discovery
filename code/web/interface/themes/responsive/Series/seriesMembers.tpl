@@ -8,7 +8,7 @@
 					<h1 id="listTitle">{$series->displayName|escape:"html"}</h1>
 					<div class="row">
 						<div class="col-xs-3 col-sm-3 col-md-3 col-lg-2 text-center">
-							<img class="listResultImage img-thumbnail {$coverStyle}" src='{$cover}' alt='{translate text='Series Cover' inAttribute=true isPublicFacing=true}'/>
+							<img class="listResultImage img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} {$coverStyle}" src='{$cover}' alt='{translate text='Series Cover' inAttribute=true isPublicFacing=true}'/>
 						</div>
 						<div class="col-xs-9 col-sm-9 col-md-9 col-lg-10">
 							{if !empty($authors)}
@@ -60,7 +60,7 @@
 
 							<div class="btn-group btn-group-sm">
 								<button value="emailList" id="SeriesEmail" class="btn btn-sm btn-default listViewButton" onclick='return AspenDiscovery.Series.emailAction("{$series->id}")'>{translate text='Email' isPublicFacing=true}</button>
-								<button value="printList" id="Seriesrint" class="btn btn-sm btn-default listViewButton" onclick='return AspenDiscovery.Series.printAction()'>{translate text='Print' isPublicFacing=true}</button>
+								<button value="printList" id="SeriesPrint" class="btn btn-sm btn-default listViewButton" onclick='return AspenDiscovery.Series.printAction()'>{translate text='Print' isPublicFacing=true}</button>
 							</div>
 
 							<div class="btn-group" role="group">

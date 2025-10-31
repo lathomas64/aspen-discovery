@@ -2259,14 +2259,18 @@ class UserAPI extends AbstractAPI {
 		$patron = $this->getUserForApiCall();
 		if ($patron && !($patron instanceof AspenError)) {
 			if ($patron->hasIlsConnection()) {
+				$preferredPickupLocationIsValid = false;
 				$tmpPickupLocations = $patron->getValidPickupBranches($patron->getAccountProfile()->recordSource);
 				$pickupLocations = [];
 				foreach ($tmpPickupLocations as $pickupLocation) {
 					if (!is_string($pickupLocation)) {
-						$pickupLocationArray = $pickupLocation->toArray();
-						$pickupLocationArray['locationId'] = (string)$pickupLocationArray['locationId'];
-						$pickupLocationArray['libraryId'] = (string)$pickupLocationArray['libraryId'];
-						$pickupLocationArray['locationCode'] = (string)$pickupLocationArray['code'];
+						//$pickupLocationArray = $pickupLocation->toArray();
+						$pickupLocationArray = [];
+						$pickupLocationArray['locationId'] = (string)$pickupLocation->locationId;
+						$pickupLocationArray['libraryId'] = (string)$pickupLocation->libraryId;
+						$pickupLocationArray['locationCode'] = (string)$pickupLocation->code;
+						$pickupLocationArray['code'] = (string)$pickupLocation->code;
+						$pickupLocationArray['displayName'] = (string)$pickupLocation->displayName;
 						$pickupLocations[] = $pickupLocationArray;
 					}
 				}
@@ -2291,22 +2295,43 @@ class UserAPI extends AbstractAPI {
 							$validLocationCodesFromILS = $getPickupLocationsFromILS['locationCodes'];
 							$pickupLocations = array_filter($pickupLocations, function ($location) use ($validLocationCodesFromILS) {
 								foreach ($validLocationCodesFromILS as $validCode) {
-									if (strpos($validCode, $location['locationCode']) === 0) {
+									if (str_starts_with($validCode, $location['locationCode'])) {
 										return true;
 									}
 								}
 								return false;
 							});
 							$pickupLocations = array_values($pickupLocations);
-						} else {
+						} elseif (empty($getPickupLocationsFromILS['useDefaultLocationFiltering'])) {
 							$pickupLocations = [];
 						}
 					}
+				}
+				$preferredPickupLocationIsValid = false;
+				foreach ($pickupLocations as $pickupLocation) {
+					if ($pickupLocation['locationId'] == $patron->pickupLocationId) {
+						$preferredPickupLocationIsValid = true;
+						break;
+					}
+				}
+				$preferredPickupLocationWarning = '';
+				if (!$preferredPickupLocationIsValid && $pickupLocations == 1) {
+					$preferredPickupLocationWarning = translate([
+						'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. The item must be picked up at the following location.',
+						'isPublicFacing' => true,
+					]);
+				} elseif (!$preferredPickupLocationIsValid) {
+					$preferredPickupLocationWarning = translate([
+						'text' => 'Your preferred pickup location is not available for this item, as it is restricted by item location rules. Please select a pickup location.',
+						'isPublicFacing' => true,
+					]);
 				}
 				return [
 					'success' => true,
 					'pickupLocations' => $pickupLocations,
 					'pickupLocationsFromILS' => $validLocationCodesFromILS ?? [],
+					'preferredPickupLocationIsValid' => $preferredPickupLocationIsValid,
+					'preferredPickupLocationWarning' => $preferredPickupLocationWarning
 				];
 			} else {
 				return [
@@ -3894,7 +3919,6 @@ class UserAPI extends AbstractAPI {
 	 *      "lastCheckout":"2011-03-22",
 	 *      "lastCheckoutTime":1300773600,
 	 *      "title":"The wanderer",
-	 *      "title_sort":"wanderer",
 	 *      "author":"O.A.R. (Musical group)",
 	 *      "format":"Music CD",
 	 *      "format_category":"Music",
@@ -3907,7 +3931,6 @@ class UserAPI extends AbstractAPI {
 	 *      "lastCheckout":"2011-03-22",
 	 *      "lastCheckoutTime":1300773600,
 	 *      "title":"Seals \/",
-	 *      "title_sort":"seals \/",
 	 *      "author":"Sexton, Colleen A.,",
 	 *      "format":"Book",
 	 *      "format_category":"Books",
@@ -7013,6 +7036,10 @@ class UserAPI extends AbstractAPI {
 					$campaign['canEnroll'] = $campaign['canEnroll'] ?? false;
 					$campaign['campaignRewardGiven'] = $campaign['rewardGiven'] ?? false;
 					$campaign['campaignIsComplete'] = $campaign['isComplete'] ?? false;
+
+					$today = date('Y-m-d');
+					$campaign['isPast'] = ($campaign['endDate'] && $campaign['endDate'] <= $today);
+					$campaign['isUpcoming'] = ($campaign['startDate'] && $campaign['startDate'] >= $today);
 					
 					if (isset($campaign['campaignReward'])) {
 						$campaign['rewardName'] = $campaign['campaignReward']['rewardName'];
@@ -7092,7 +7119,7 @@ class UserAPI extends AbstractAPI {
 		$campaigns = array_filter($campaigns, function($campaign) use ($filter) {
 			switch ($filter) {
 				case 'enrolled':
-					return $campaign->enrolled;
+					return $campaign->enrolled && !$campaign->isPast;
 				case 'active':
 					return $campaign->isActive;
 				case 'upcoming': 
@@ -7121,6 +7148,7 @@ class UserAPI extends AbstractAPI {
 				$base['awardAutomatically'] = $campaign->awardAutomatically ?? null;
 				$base['enrolled'] = $campaign->enrolled ?? false;
 				$base['isPast'] = $campaign->isPast ?? false;
+				$base['isUpcoming'] = $campaign->isUpcoming ?? false;
 				$base['canEnroll'] = $campaign->canEnroll ?? false;
 				$base['campaignRewardGiven'] = $campaign->campaignRewardGiven ?? false;
 				$base['campaignIsComplete'] = $campaign->isComplete ?? false;

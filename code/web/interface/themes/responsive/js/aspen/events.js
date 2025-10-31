@@ -89,7 +89,7 @@ AspenDiscovery.Events = (function(){
 						if (!eventType.titleCustomizable) {
 							$("#title").attr('readonly', 'readonly');
 						} else {
-							$("#title").removeAttr('readonly');
+							$("#title").prop('readonly', false);
 						}
 						var descriptionEditor = tinymce.get("description");
 						$("#description").text(eventType.description);
@@ -99,13 +99,13 @@ AspenDiscovery.Events = (function(){
 							descriptionEditor.setMode("readonly");
 						} else {
 							descriptionEditor.setMode("design");
-							$("#description").removeAttr('readonly');
+							$("#description").prop('readonly', false);
 						}
 						$("#importFile-label-cover").val(eventType.cover);
 						if (!eventType.coverCustomizable) {
 							$("#importFile-label-cover").attr('readonly', 'readonly');
 						} else {
-							$("#importFile-label-cover").removeAttr('readonly');
+							$("#importFile-label-cover").prop('readonly', false);
 						}
 						if (eventType.eventLength != null) {
 							var minutes = eventType.eventLength % 60;
@@ -119,9 +119,9 @@ AspenDiscovery.Events = (function(){
 							$("#eventLength_hours").attr('readonly', 'readonly');
 							$("#eventLength").attr('readonly', 'readonly');
 						} else {
-							$("#eventLength").removeAttr('readonly');
-							$("#eventLength_minutes").removeAttr('readonly');
-							$("#eventLength_hours").removeAttr('readonly');
+							$("#eventLength").prop('readonly', false);
+							$("#eventLength_minutes").prop('readonly', false);
+							$("#eventLength_hours").prop('readonly', false);
 						}
 						$("#accordion_body_Fields_for_this_Event_Type .panel-body").html(data.typeFields);
 						$('#accordion_body_Fields_for_this_Event_Type [data-toggle="tooltip"]').tooltip();
@@ -606,6 +606,56 @@ AspenDiscovery.Events = (function(){
 				}
 			).fail(AspenDiscovery.ajaxFail);
 			return false;
+		},
+		getPrintListOptions: function (week, month, year) {
+			AspenDiscovery.Account.ajaxLightbox(Globals.path + '/Events/AJAX?method=getListPrintOptions&week=' + week + '&month=' + month + "&year=" + year);
+			return false;
+		},
+		buildAndOpenPrintUrl: function () {
+			const print = document.getElementById('print').value;
+			const week = document.getElementById('week').value;
+			const month = document.getElementById('month').value;
+			const year = document.getElementById('year').value;
+
+			const baseUrl = Globals.path + '/Events/Calendar';
+
+
+			// Checkbox names (in order as in the form)
+			const checkboxIds = [
+				'endTime',
+				'descriptionAgenda'
+			];
+
+			// Build URL params object
+			const params = {
+				print,
+				week,
+				month,
+				year
+			};
+
+			checkboxIds.forEach(id => {
+				const el = document.getElementById(id);
+				if (el) {
+					// Only include if checked, send value "true" (or customize as needed)
+					params[id] = el.checked ? 'true' : 'false';
+				}
+			});
+
+			// Build search string
+			const urlSearchParams = new URLSearchParams(params).toString();
+
+			// Final URL
+			const printUrl = `${baseUrl}?${urlSearchParams}`;
+
+			// Open print window and prompt print dialog once loaded
+			const win = window.open(printUrl, '_blank', 'width=900,height=900');
+			if (win) {
+				// Wait for the new window to load content, then trigger print
+				win.onload = function () {
+					win.print();
+				};
+			}
 		}
 	};
 }(AspenDiscovery.Events || {}));

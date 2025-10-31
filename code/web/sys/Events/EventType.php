@@ -17,11 +17,25 @@ class EventType extends DataObject {
 	public $lengthCustomizable;
 	public $archived;
 	public $eventFieldSetId;
+	public $includeInReports;
 
 	public $_libraries;
 	public $_locations;
 
 	static $_objectStructure = [];
+
+	public function getNumericColumnNames(): array {
+		return [
+			'titleCustomizable',
+			'descriptionCustomizable',
+			'coverCustomizable',
+			'eventLength',
+			'lengthCustomizable',
+			'archived',
+			'includeInReports',
+		];
+	}
+
 	static function getObjectStructure(string $context = ''): array {
 		if (isset(self::$_objectStructure[$context]) && self::$_objectStructure[$context] !== null) {
 			return self::$_objectStructure[$context];
@@ -117,6 +131,13 @@ class EventType extends DataObject {
 				'description' => 'The event field set that contains the right fields to use with this event type',
 				'values' => $eventSets,
 				'required' => true,
+			],
+			'includeInReports' => [
+				'property' => 'includeInReports',
+				'type' => 'checkbox',
+				'label' => 'Include in Reports?',
+				'default' => true,
+				'description' => 'If unchecked, events of this type will not be shown in events reports',
 			],
 			'archived' => [
 				'property' => 'archived',
@@ -284,12 +305,15 @@ class EventType extends DataObject {
 		}
 	}
 
-	public static function getEventTypeList($includeArchived = false, $location = false): array {
+	public static function getEventTypeList($includeArchived = false, $location = false, $forReports = false): array {
 		$typeList = [];
 		$object = new EventType();
 		$object->orderBy('title');
 		if (!$includeArchived) {
 			$object->archived = 0;
+		}
+		if ($forReports) {
+			$object->includeInReports = 1;
 		}
 		if ($location) {
 			$validTypeIdsForLocation = self::getEventTypeIdsForLocation($location);

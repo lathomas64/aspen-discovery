@@ -92,7 +92,21 @@ abstract class Solr {
 	/**
 	 * Flag to disable default scoping to show ILL book titles, etc.
 	 */
-	private $scopingDisabled = false;
+	private bool $scopingDisabled = false;
+
+	/**
+	 * Flag to enable or disable boosting of records.
+	 * In general only useful for finding all records in Solr.
+	 */
+	protected bool $boostingDisabled = false;
+
+	/**
+	 * This determines if Aspen applies edition limiters which limit based on ownership, availability, etc.
+	 * This needs to be disabled to search across libraries and locations.
+	 *
+	 * @var bool
+	 */
+	protected bool $disableEditionLimiters = false;
 
 	/** @var string */
 	private $searchSource = null;
@@ -369,17 +383,16 @@ abstract class Solr {
 	 * Retrieves a document specified by the ID.
 	 *
 	 * @param array $ids A list of document to retrieve from Solr
-	 * @param string $fieldsToReturn An optional list of fields to return separated by commas
-	 * @access    public
+	 * @param ?string $fieldsToReturn An optional list of fields to return separated by commas
 	 * @return    array                            The requested resources
 	 * @throws    AspenError
 	 */
-	function getRecords($ids, $fieldsToReturn = null) {
+	function getRecords(array $ids, ?string $fieldsToReturn = null) : array {
 		if (count($ids) == 0) {
 			return [];
 		}
 		//Solr does not seem to be able to return more than 50 records at a time,
-		//If we have more than 50 ids, we will ned to make multiple calls and
+		//If we have more than 50 ids, we will need to make multiple calls and
 		//concatenate the results.
 		$records = [];
 		$startIndex = 0;
@@ -1042,11 +1055,11 @@ abstract class Solr {
 		return $sortField . ' ' . $sortDirection;
 	}
 
-	function disableScoping() {
+	function disableScoping() : void {
 		$this->scopingDisabled = true;
 	}
 
-	function enableScoping() {
+	function enableScoping() : void {
 		$this->scopingDisabled = false;
 	}
 
@@ -1063,6 +1076,26 @@ abstract class Solr {
 		}
 
 		return $scopingEnabled;
+	}
+
+	function disableBoosting() : void {
+		$this->boostingDisabled = true;
+	}
+
+	function enableBoosting() : void {
+		$this->boostingDisabled = false;
+	}
+
+	function editionLimitersAreDisabled() : bool {
+		return $this->disableEditionLimiters;
+	}
+
+	function disableEditionLimiters() : void {
+		$this->disableEditionLimiters = true;
+	}
+
+	function enableEditionLimiters() : void {
+		$this->disableEditionLimiters = false;
 	}
 
 	/**
@@ -1724,7 +1757,7 @@ abstract class Solr {
 	 * @return    array                                                     The processed response from Solr
 	 * @access    private
 	 */
-	private function _process($result, $returnSolrError = false, $queryString = null) {
+	protected function _process($result, $returnSolrError = false, $queryString = null) {
 		global $timer;
 		global $memoryWatcher;
 		// Catch errors from SOLR

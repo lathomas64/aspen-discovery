@@ -16,10 +16,10 @@
 							{if $record->getCoverUrl()}
 								{if $record->recordId && $record->getLinkUrl()}
 									<a href="{$record->getLinkUrl()}" id="descriptionTrigger{$record->recordId|escape:"url"}" aria-hidden="true">
-										<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}">
+										<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}">
 									</a>
 								{else} {* Cover Image but no Record-View link *}
-									<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}" aria-hidden="true">
+									<img src="{$record->getCoverUrl()}" class="listResultImage img-thumbnail{if $useOriginalCoverUrls} use-original-covers{/if} img-responsive {$coverStyle}" alt="{translate text='Cover Image' inAttribute=true isPublicFacing=true}" aria-hidden="true">
 								{/if}
 							{/if}
 						{/if}
@@ -96,7 +96,7 @@
 						{if !empty($accessOnlineLink)}
 							<a href="{$accessOnlineLink}" target="_blank" class="btn btn-sm btn-action btn-wrap" aria-label="{translate text='Open in cloudLibrary' isPublicFacing=true} ({translate text='opens in new window' isPublicFacing=true})"><i class="fas fa-external-link-alt" role="presentation"></i> {translate text='Open in cloudLibrary' isPublicFacing=true}</a>
 						{/if}
-						{if array_key_exists('Palace Project', $enabledModules) && !empty($asccessOnlineLink)}
+						{if array_key_exists('Palace Project', $enabledModules) && !empty($accessOnlineLink)}
 							<a onclick="AspenDiscovery.PalaceProject.showUsageInstructions();" target="_blank" class="btn btn-sm btn-action btn-wrap">{translate text='Access In Palace Project' isPublicFacing=true}</a>
 						{/if}
 						{if $record->canRenew}
