@@ -1151,6 +1151,40 @@ class UInterface extends Smarty {
 			$this->assign('isDarkColorScheme', $primaryTheme->isDarkColorScheme);
 		}
 	}
+
+	public function startRenderCallback($template)
+	{
+		//echo get_class($template) . "<br><br>";
+		//var_dump($template->compiled);
+		//echo "<pre>" . var_export($template, true) . "</pre>";
+		if(true || $_REQUEST["debug"] == "true")
+		{
+			$path = $template->source->filepath;
+			echo "<div>start $path</div>";
+		}
+		return $template;
+	}
+
+	public function endRenderCallback($template)
+	{
+		if(true || $_REQUEST["debug"] == "true")
+		{
+			$path = $template->source->filepath;
+			echo "<div>end $path</div>";
+		}
+		return $template;
+	}
+
+	public function createTemplate($template, $cache_id = null, $compile_id = null, $parent = null, $do_clone = true)
+	{
+		$tpl = parent::createTemplate($template, $cache_id, $compile_id, $parent, $do_clone);
+		//TODO these callbacks only work on locally rendered templates.
+		//we need to figure out how to embed things for dynamically loaded templates.
+		//looking at getRenderedTemplateCode in smarty_template_resource_base.php
+		$tpl->startRenderCallbacks[] = array($this, "startRenderCallback");
+		$tpl->endRenderCallbacks[] = array($this, "endRenderCallback");
+		return $tpl;
+	}
 }
 
 function translate($params) {
